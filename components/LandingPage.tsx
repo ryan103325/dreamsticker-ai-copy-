@@ -46,7 +46,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
                             required
                             value={key}
                             onChange={(e) => setKey(e.target.value)}
-                            placeholder="AIzaSy..."
+                            placeholder="請輸入您的API KEY..."
                             className="w-full px-4 py-3 rounded-xl bg-black/30 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all"
                         />
                     </div>
