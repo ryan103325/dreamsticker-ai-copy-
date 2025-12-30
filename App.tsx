@@ -243,7 +243,7 @@ export const App = () => {
     // Random Dice State
     const [showDiceMenu, setShowDiceMenu] = useState(false);
     const [diceLoading, setDiceLoading] = useState(false);
-    const [diceKeyword, setDiceKeyword] = useState(""); // Keyword for random generator
+
 
     // OpenCV State
     const [isOpenCVReady, setIsOpenCVReady] = useState(false);
@@ -478,7 +478,7 @@ export const App = () => {
         setShowDiceMenu(false);
         setDiceLoading(true);
         try {
-            const prompt = await generateRandomCharacterPrompt(type, diceKeyword);
+            const prompt = await generateRandomCharacterPrompt(type, "");
             setPromptText(prompt);
         } catch (e) {
             console.error(e);
@@ -1024,16 +1024,7 @@ export const App = () => {
                                                     </button>
                                                     {showDiceMenu && (
                                                         <div className="absolute bottom-full right-0 mb-2 bg-white rounded-xl shadow-xl border border-pink-100 p-2 w-48 animate-fade-in z-20 flex flex-col gap-1">
-                                                            <div className="text-[10px] text-slate-400 font-bold px-2 py-1 uppercase">選擇類型</div>
-                                                            <div className="px-2 pb-2">
-                                                                <input
-                                                                    type="text"
-                                                                    value={diceKeyword}
-                                                                    onChange={(e) => setDiceKeyword(e.target.value)}
-                                                                    placeholder="選填：關鍵字 (如: 龐克)"
-                                                                    className="w-full text-xs p-2 rounded-lg bg-slate-50 border border-slate-200 outline-none focus:ring-1 focus:ring-pink-300"
-                                                                />
-                                                            </div>
+                                                            <div className="text-[10px] text-slate-400 font-bold px-2 py-1 uppercase">選擇隨機類型</div>
                                                             <button onClick={() => handleDiceRoll('ANIMAL')} className="w-full text-left px-3 py-2 hover:bg-pink-50 rounded-lg text-sm font-bold text-slate-700 hover:text-pink-600 transition-colors flex items-center gap-2">🐶 可愛動物</button>
                                                             <button onClick={() => handleDiceRoll('PERSON')} className="w-full text-left px-3 py-2 hover:bg-pink-50 rounded-lg text-sm font-bold text-slate-700 hover:text-pink-600 transition-colors flex items-center gap-2">🧑 特色人物</button>
                                                         </div>
