@@ -165,13 +165,6 @@ export const parseStickerIdeas = async (rawText: string, includeText: boolean = 
        - Remove any numbering (1., 2.) from the final "text".
        - Remove emojis from the "text" field (keep text clean).
 
-    [COMBO/CONTINUOUS PATTERN DETECTION]
-    If you detect a sequence of items representing a single long object (e.g., "Long Cat Left", "Long Cat Middle", "Long Cat Right" OR "Train Head", "Train Body", "Train Tail"):
-    1. **Left/Head**: Add "**[COMBO-LEFT]** Extend graphics to the **RIGHT edge** to connect." to 'emotionPrompt'.
-    2. **Middle/Body**: Add "**[COMBO-MID]** Extend graphics to **BOTH Left & Right edges** to connect." to 'emotionPrompt'.
-    3. **Right/Tail**: Add "**[COMBO-RIGHT]** Extend graphics to the **LEFT edge** to connect." to 'emotionPrompt'.
-    4. Ensure the visual description describes the specific part (Head/Body/Tail) but mentions it's part of a continuous object.
-
     [OUTPUT FORMAT]
     Return a JSON Array of objects. Each object must have:
     ${textInstruction}
@@ -380,23 +373,28 @@ export const generateCharacterDescriptionFromKeyword = async (keyword: string): 
     const ai = getAI();
     const prompt = `
     請擔任專業的 IP 角色設計師。
-    任務：根據使用者提供的關鍵字「${keyword}」，發想一個適合做 Line 貼圖的可愛角色外觀描述。
+    任務：根據使用者提供的關鍵字「${keyword}」，發想一個適合做 Line 貼圖的「創意、獨特、不落俗套」的角色外觀描述。
 
     要求：
     1. **語言**：繁體中文。
-    2. **字數**：約 50-80 字。
-    3. **內容**：具體描述角色的顏色、特徵、配件、服裝。
-    4. **風格**：可愛、鮮明、有特色。
-    5. **直接輸出**：直接給出描述內容，不需要「好的」、「以下是描述」等廢話。
+    2. **創意腦力激盪**：
+       - 利用「超現實主義」或「意想不到的結合」。
+       - 避免刻板印象 (例如提到貓就只想到吃魚)。
+       - 可以加入有趣的職業、情緒、或奇幻元素。
+    3. **字數**：約 50-80 字。
+    4. **內容**：具體描述角色的顏色、特徵、配件、服裝。
+    5. **風格**：可愛、鮮明、有特色。
+    6. **直接輸出**：直接給出描述內容，不需要「好的」、「以下是描述」等廢話。
 
     範例關鍵字：「柯基」
-    範例輸出：「一隻圓滾滾的黃白相間柯基犬，戴著紅色的領巾，短短的腿穿著藍色小雨靴，眼睛大大的，表情總是充滿傻氣與活力。」
+    範例輸出：「一隻漂浮在空中的宇航員柯基犬，身穿銀色反光太空衣，頭盔裡塞滿了彩色甜甜圈，眼神充滿對宇宙的好奇。」
     `;
 
     return callWithRetry(async () => {
         const response = await ai.models.generateContent({
             model: TEXT_MODEL,
             contents: { parts: [{ text: prompt }] },
+            config: { temperature: 1.6 } // High randomness
         });
         validateResponse(response);
         return response.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
@@ -413,11 +411,14 @@ export const generateRandomCharacterPrompt = async (type: 'ANIMAL' | 'PERSON', k
     let systemInstruction = `你是創意總監。請設計一個適合 Line 貼圖的「獨特且有創意」的 IP 角色 (${type === 'ANIMAL' ? '動物' : '人物'})。
     
     規則：
-    1. **拒絕平庸**：不要只給「可愛的小貓」或「普通的男孩」。
-    2. **大膽組合**：請隨機結合「職業/身份」+「物種/類型」+「獨特風格」。
+    1. **嚴格分類 (STRICT)**：使用者選擇了「${type === 'ANIMAL' ? '動物' : '人物'}」。
+       - 如果是動物，絕對不能出現人類特徵 (如人類皮膚、人臉)。可以是擬人化動物 (穿衣)，但本質必須是動物。
+       - 如果是人物，絕對不能是動物。
+    2. **拒絕平庸**：不要只給「可愛的小貓」或「普通的男孩」。
+    3. **大膽組合**：請隨機結合「職業/身份」+「物種/類型」+「獨特風格」。
        - 例如：穿著太空衣的倉鼠 (科幻風)、正在做瑜珈的樹懶 (運動風)、戴著單片眼鏡的紳士青蛙 (英倫風)、龐克搖滾風的兔子。
-    3. **鮮明配色**：請指定一組獨特的配色方案 (例如：螢光綠配紫色、黑金配色、粉彩撞色)。
-    4. **細節描述**：描述外觀特徵、配件 (帽子、眼鏡、圍巾) 和個性。
+    4. **鮮明配色**：請指定一組獨特的配色方案 (例如：螢光綠配紫色、黑金配色、粉彩撞色)。
+    5. **細節描述**：描述外觀特徵、配件 (帽子、眼鏡、圍巾) 和個性。
     
     輸出要求：
     - 使用繁體中文。
@@ -431,7 +432,7 @@ export const generateRandomCharacterPrompt = async (type: 'ANIMAL' | 'PERSON', k
     const response = await ai.models.generateContent({
         model: TEXT_MODEL,
         contents: { parts: [{ text: systemInstruction }] },
-        config: { temperature: 1.4 } // High temperature for maximum creativity
+        config: { temperature: 1.6 } // Increased temperature for more randomness
     });
     return response.text || "";
 };
@@ -564,11 +565,16 @@ export const generateStickerSheet = async (characterUrl: string, configs: Sticke
     [System Role] Icon Designer / Emoji Artist.
     [Formatting] Center characters. Solid Green (#00FF00) BG.
 
-    **DESIGN STYLE: LINE EMOJI (Strict)**
-    1. **MINIMALIST & BOLD**: These are small emojis (180px). Use **Simpler shapes**, **fewer details**, and **Bold lines** for high readability at small sizes.
-    2. **NO WHITE OUTLINE**: Do NOT add a white border around the character. The character should be **FULL BLEED** (fill the cell as much as possible).
-       - *Reasoning*: Emojis need to connect seamlessly like text.
-    3. **ICONIC LOOK**: Think "Vector Icon" or "Favicon" style. Clear silhouettes.
+    **DESIGN STYLE: LINE EMOJI (Character Fidelity)**
+    1. **MAINTAIN CHARACTER IDENTITY (CRITICAL)**: You MUST strictly adhere to the Input Character's design.
+       - **COLORS**: Use the EXACT same color palette as the reference image.
+       - **FEATURES**: Keep facial features, hair style/color, and accessories consistent.
+       - **DO NOT** simplify into a generic "stick figure" or "black and white icon" unless the reference is that style.
+    2. **SIZE OPTIMIZATION**: These are small emojis (180px).
+       - Keep lines **Bold and Clear**.
+       - Avoid microscopic details that vanish at small sizes.
+       - But **KEEP THE VIBE** of the original character.
+    3. **NO WHITE OUTLINE**: Do NOT add a white border. The character should be **FULL BLEED** (fill the cell).
     4. **CONNECTABLE**: If possible, design element so they look good when placed next to each other.
 
     **COLOR SAFETY:**
