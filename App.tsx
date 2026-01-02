@@ -19,6 +19,7 @@ import {
     getStickerSpec,
     StickerPackageInfo,
     STICKER_SPECS,
+    EMOJI_SPECS,
     CharacterInput
 } from './types';
 import { generateIPCharacter, generateStickerSheet, editSticker, parseStickerIdeas, generateStickerPackageInfo, generateRandomCharacterPrompt, generateVisualDescription, generateGroupCharacterSheet, analyzeImageForCharacterDescription, generateCharacterDescriptionFromKeyword, translateActionToEnglish } from './services/geminiService';
@@ -36,14 +37,14 @@ const SHEET_EDITOR_STEP = AppStep.SHEET_EDITOR;
 
 // Predefined Art Styles for Quick Selection
 const ART_STYLES = [
-    "Q版萌系插畫 (Chibi Kawaii)",
-    "手繪蠟筆風 (Hand-drawn Crayon)",
-    "3D 盲盒公仔 (3D Blind Box)",
-    "美式復古卡通 (Retro Cartoon)",
-    "日系動漫賽璐珞 (Anime Cell Shading)",
-    "像素藝術 (Pixel Art)",
-    "醜萌梗圖風 (Ugly Cute Meme)",
-    "向量平面設計 (Flat Vector)"
+    "Q版萌系插畫(畫風設定：可愛、活潑、2D平面)",
+    "3D盲盒公仔(畫風設定：3D渲染，C4D質感，盲盒玩具風格，可愛圓潤。)",
+    "日系動漫賽璐珞(畫風設定：精緻賽璐璐上色，線條清晰，日系動漫風格。)",
+    "照片級寫真(畫風設定：嚴格保持原圖的照片質感、光影與細節，不進行Q版化或風格轉換。)",
+    "水彩手繪(畫風設定：柔和水彩暈染質感，邊緣略帶手繪粗糙感，文青風格。)",
+    "蠟筆童趣(畫風設定：蠟筆筆觸，顆粒感，兒童畫風格，色彩鮮豔飽和。)",
+    "極簡線條(畫風設定：黑白或單色線條為主，極簡風格，沒有過多填色。)",
+    "像素風(畫風設定：復古遊戲、8-bit、點陣圖風格。)"
 ];
 
 // Predefined Font Options for Quick Selection
@@ -219,7 +220,8 @@ export const App = () => {
     // Prompt Generator State
     const [isPromptGeneratorOpen, setIsPromptGeneratorOpen] = useState(false);
     const [promptTextListInput, setPromptTextListInput] = useState("");
-    const [promptFontStyleInput, setPromptFontStyleInput] = useState("");
+    const [promptFontStyleInput, setPromptFontStyleInput] = useState(""); // Kept for state compatibility but UI removed
+    const [promptGenQuantity, setPromptGenQuantity] = useState<StickerQuantity>(20); // Default to 20 as per user request
     const [promptArtStyleInput, setPromptArtStyleInput] = useState("");
 
     // Sheet & Preview Data
@@ -712,12 +714,103 @@ export const App = () => {
         return `【${items.join('、')}】`;
     }, [promptTextListInput, includeText]);
 
-    const fontStyleDisplay = promptFontStyleInput || "可愛 Q 版字型";
+    const fontStyleDisplay = "可愛 Q 版 Pop Art 字型"; // Hardcoded default
     const artStyleDisplay = promptArtStyleInput || "可愛、活潑、2D平面";
+    const promptSpec = stickerType === 'EMOJI'
+        ? (EMOJI_SPECS[promptGenQuantity] || EMOJI_SPECS[40])
+        : (STICKER_SPECS[promptGenQuantity] || STICKER_SPECS[20]);
 
     const promptTemplate = useMemo(() => {
-        return `[引導指令]... (省略, 保持原樣)`;
-    }, [stickerQuantity, artStyleDisplay, formattedTextList, fontStyleDisplay, currentSpec]);
+        if (stickerType === 'EMOJI') {
+            return `# LINE 表情貼 ${promptGenQuantity} 格完整版 Prompt (尺寸修正版：${promptSpec.width}x${promptSpec.height})
+
+請生成一張包含 ${promptGenQuantity} 個不同動作與表情的【參考上傳圖片 (Reference Upload)】貼圖集大圖，用於 LINE 表情貼製作。
+
+## 【最高優先級約束：佈局、邊距與居中】
+**（此部分請嚴格執行，確保後續裁切不出錯）**
+
+1.  **大圖規格**：整張圖片畫布尺寸為 **${promptSpec.width} pixels (寬) x ${promptSpec.height} pixels (高)**。
+2.  **隱形網格結構**：畫面內部邏輯分為 ${promptSpec.cols} 直欄 x ${promptSpec.rows} 橫列，共 ${promptGenQuantity} 個單元格。
+3.  **純淨背景**：整張大圖背景統一為純綠色 (#00FF00)，無漸層、無雜點。**不可繪製任何黑色的網格分隔線或邊框**。
+4.  **強制完美居中**：在每一個隱形單元格內，主體必須在視覺上「完美居中」排列。
+5.  **嚴格安全邊距 (Strict Safety Margin)**：
+    * **重要：** 每個貼圖之間（單元格邊界）必須保留 **30 pixels** 的純綠色間隔。
+    * **絕對禁止**任何像素點貼齊、接觸或超出單元格範圍。確保每個角色周圍都有一圈明顯的綠色「安全氣囊」。
+
+## 【角色與風格一致性】
+* **角色設定**：請嚴格參考上傳圖片中的角色特徵（髮型、服裝、五官、配色），保持完全一致。 (**注意：若參考圖片中文字較小或顏色單調，請忽略該文字風格，強制採用下方的「文字設計規範」進行創作。**)
+* **畫風設定**：${artStyleDisplay}
+* **配色風格**：高飽和度，色彩鮮明，對比度高，典型 LINE 貼圖配色。
+* **線條與上色**：線條單一粗細，圓角筆觸，乾淨平滑。上色平塗為主，僅一層輕微陰影。
+* **顏色禁忌**：角色本體、服裝與文字**絕對不可使用綠色 (#00FF00 或相近色)**，因為綠色是用作去背的背景色，避免被誤刪。
+
+## 【畫面內容規範】
+* 每一格僅包含：單一角色本體（可搭配少量必要的簡單情緒符號，如愛心、汗滴、生氣符號，符號不可喧賓奪主或遮擋臉部）。
+* ❌ 不包含任何場景背景。
+* ❌ 不包含任何文字內容。
+* ❌ 不包含任何手機系統 emoji。
+
+## 【${promptGenQuantity} 格表情與動作清單】(預設)
+（請依照 ${promptSpec.cols}x${promptSpec.rows} 的順序排列，確保每格動作不同）
+
+【一、高頻回覆：動作明確不撞車】
+01. [打招呼] 雙手舉高揮舞 (熱情開場)
+02. [再見] 背對鏡頭揮手 (帥氣離場)
+03. [OK] 雙手在頭頂比大圓圈 (Body Language)
+04. [NO] 雙手在胸前交叉打叉
+05. [收到] 立正站好，舉手敬禮 (遵命)
+06. [感謝] 90度標準鞠躬 (禮貌)
+07. [道歉] 土下座 (趴在地上跪拜，誠意最足)
+08. [拜託] 雙膝跪地，雙手合十祈禱
+09. [指名] 單手指著鏡頭 (就是你/You!)
+10. [加一] 高舉寫著「+1」的牌子
+
+【二、正面情緒：張力與道具區隔】
+11. [大笑] 躺在地上打滾 (笑到肚子痛)
+12. [慶祝] 拉開彩炮，彩帶飛舞
+13. [加油] 雙手拿啦啦隊彩球應援
+14. [愛心] 雙手抱著一顆巨大的紅愛心
+15. [自信] 雙手叉腰，抬頭挺胸 (鼻子變長)
+16. [期待] 趴在地上托腮，雙腳晃動
+17. [擊掌] 跳起來側面擊掌 (Give me five)
+18. [害羞] 身體扭成麻花狀，雙手摀臉
+19. [親親] 嘟嘴身體前傾，飛出小愛心
+20. [靈感] 彈手指，頭頂亮起燈泡
+(下略，請自行補充至 ${promptGenQuantity} 個...)
+
+## 【最終輸出確認】
+輸出一張 ${promptSpec.width}x${promptSpec.height} 的純綠底圖片，上面整齊排列 ${promptGenQuantity} 個單元，無網格線，每個單元都完美居中且周圍有充足的邊距（至少 30px 間隔）。`;
+        }
+
+        // Return Sticker Template
+        return `✅ ${promptGenQuantity} 格貼圖集｜Prompt 指令 (${promptSpec.cols} × ${promptSpec.rows} 版)｜網格與佈局絕對定義
+
+[內容、間隔與對位設定]
+整體畫幅：${promptSpec.width} × ${promptSpec.height} px (強制橫向矩形畫幅)。
+結構佈局：精確佈局為 ${promptSpec.rows} 橫排 (Rows) × ${promptSpec.cols} 直欄 (Columns)，共 ${promptGenQuantity} 個獨立角色。
+無物理格線：背景必須是 100% 純淨、高飽和、無雜點的綠幕 (#00FF00)，絕對禁止繪製任何物理隔線、框線 or 單元格界線。
+強制居中：每張貼圖內容必須嚴格位於單元格中心。
+留白空間：主體內容需與單元格邊界保持「最大化呈現」，但必須精確預留 10 px 的純綠色安全空隙，內容不可貼齊邊界。
+角色一致性：參考上傳圖片中的角色，生成 一張包含 ${promptGenQuantity} 個不同動作的角色貼圖集。
+嚴禁重複：這 ${promptGenQuantity} 張貼圖的姿勢、文字與表情組合絕不重複。
+
+[文字設計]
+語言：【台灣繁體中文】
+文字內容：${formattedTextList}
+排版比例：單張貼圖內，文字佔比約 40%，主角佔比約 60%。文字不可遮臉。
+邊框設計：文字與角色外圍皆需具備「細薄黑邊內層」，外層包覆「厚度適中的圓滑白色外框」。
+字型風格：【${fontStyleDisplay}】
+
+[文字色彩]
+絕對禁止使用錄色、螢光綠、黃綠色等接近背景綠幕的顏色，以免去背失效。絕對禁止黑色。
+
+[表情與動作設計]
+表情參考：【喜、怒、哀、樂、驚訝、無語...】
+畫風設定：【${artStyleDisplay}】。
+
+[輸出格式]
+一張 ${promptSpec.width}x${promptSpec.height} 大圖，確保貼圖為 ${promptSpec.rows} 橫排 × ${promptSpec.cols} 直欄，共計 ${promptGenQuantity} 個貼圖。文字與角色外圍皆需具備「細薄黑邊」與「白色外框」。背景為 100% 純綠色 #00FF00，不准有格線，內容居中並保留 10px 邊距。務必確保符合需求。`;
+    }, [promptGenQuantity, artStyleDisplay, formattedTextList, fontStyleDisplay, promptSpec, stickerType]);
 
     useEffect(() => {
         if (appStep === AppStep.STICKER_PROCESSING && finalStickers.length > 0 && !stickerPackageInfo) {
@@ -1122,23 +1215,29 @@ export const App = () => {
                                                             </div>
                                                             <div className="space-y-6">
                                                                 <div>
+                                                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">生成數量 (Quantity)</label>
+                                                                    <div className="flex items-center gap-4">
+                                                                        <input
+                                                                            type="range"
+                                                                            min="8" max="40" step="4"
+                                                                            value={promptGenQuantity}
+                                                                            onChange={(e) => setPromptGenQuantity(Number(e.target.value) as StickerQuantity)}
+                                                                            className="flex-1 accent-indigo-600 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                                                                        />
+                                                                        <span className="text-indigo-600 font-black text-xl w-12 text-right">{promptGenQuantity}</span>
+                                                                    </div>
+                                                                    <p className="text-[10px] text-slate-400 mt-1">對應網格: {STICKER_SPECS[promptGenQuantity]?.cols}x{STICKER_SPECS[promptGenQuantity]?.rows} ({STICKER_SPECS[promptGenQuantity]?.width}x{STICKER_SPECS[promptGenQuantity]?.height}px)</p>
+                                                                </div>
+                                                                <div>
                                                                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">畫風設定</label>
                                                                     <div className="flex flex-wrap gap-2 mb-2">
                                                                         {ART_STYLES.map(style => (
-                                                                            <button key={style} onClick={() => setPromptArtStyleInput(style)} className={`px-2 py-1 rounded text-[10px] font-bold border transition-all ${promptArtStyleInput === style ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300'}`}>{style.split(' ')[0]}</button>
+                                                                            <button key={style} onClick={() => setPromptArtStyleInput(style)} className={`px-2 py-1 rounded text-[10px] font-bold border transition-all ${promptArtStyleInput === style ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300'}`}>{style.split(/[\(\（]/)[0]}</button>
                                                                         ))}
                                                                     </div>
                                                                     <input type="text" value={promptArtStyleInput} onChange={e => setPromptArtStyleInput(e.target.value)} className="w-full p-3 rounded-xl border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-indigo-400 outline-none bg-white" placeholder="預設：Q版日本動漫" />
                                                                 </div>
-                                                                <div>
-                                                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">文字樣式</label>
-                                                                    <div className="flex flex-wrap gap-2 mb-2">
-                                                                        {FONT_OPTIONS.map(font => (
-                                                                            <button key={font} onClick={() => setPromptFontStyleInput(font)} className={`px-2 py-1 rounded text-[10px] font-bold border transition-all ${promptFontStyleInput === font ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300'}`}>{font}</button>
-                                                                        ))}
-                                                                    </div>
-                                                                    <input type="text" value={promptFontStyleInput} onChange={e => setPromptFontStyleInput(e.target.value)} className="w-full p-3 rounded-xl border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-indigo-400 outline-none bg-white" placeholder="預設：可愛 Q 版字型" />
-                                                                </div>
+                                                                <div className="hidden"></div>
                                                             </div>
                                                         </div>
                                                         <div className="relative group mt-6">
@@ -1157,7 +1256,7 @@ export const App = () => {
                                             <label className="block text-sm font-bold text-slate-700 mb-2">畫風設定</label>
                                             <div className="flex flex-wrap gap-2 mb-3">
                                                 {ART_STYLES.map(style => (
-                                                    <button key={style} onClick={() => setStylePrompt(style)} className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${stylePrompt === style ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-500'}`}>{style.split(' ')[0]}</button>
+                                                    <button key={style} onClick={() => setStylePrompt(style)} className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${stylePrompt === style ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-500'}`}>{style.split(/[\(\（]/)[0]}</button>
                                                 ))}
                                             </div>
                                             <div className="relative">

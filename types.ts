@@ -74,12 +74,13 @@ export interface FontConfig {
   customFontFamily?: string;
 }
 
-export type StickerQuantity = 8 | 16 | 24 | 32 | 40;
+export type StickerQuantity = 8 | 16 | 20 | 24 | 32 | 40;
 
 // --- STICKER SPECS (User Defined Dimensions for Static) ---
 export const STICKER_SPECS: Record<number, { width: number; height: number; cols: number; rows: number }> = {
   8: { width: 1480, height: 640, cols: 4, rows: 2 },
   16: { width: 1480, height: 1280, cols: 4, rows: 4 },
+  20: { width: 2560, height: 1664, cols: 5, rows: 4 }, // Added per user request for external Prompt Generator
   24: { width: 1480, height: 1920, cols: 4, rows: 6 },
   32: { width: 1480, height: 2560, cols: 4, rows: 8 },
   40: { width: 1850, height: 2560, cols: 5, rows: 8 },
@@ -93,6 +94,7 @@ export const getStickerSpec = (count: number) => {
 export const EMOJI_SPECS: Record<number, { width: number; height: number; cols: number; rows: number }> = {
   8: { width: 1024, height: 512, cols: 4, rows: 2 },
   16: { width: 1024, height: 1024, cols: 4, rows: 4 },
+  20: { width: 1024, height: 1280, cols: 4, rows: 5 },
   24: { width: 1024, height: 1536, cols: 4, rows: 6 },
   32: { width: 1024, height: 2048, cols: 4, rows: 8 },
   40: { width: 1280, height: 2048, cols: 5, rows: 8 },
@@ -102,7 +104,7 @@ export const getEmojiSpec = (count: number) => {
   return EMOJI_SPECS[count] || EMOJI_SPECS[8];
 };
 
-export const DEFAULT_STYLE = "Q版日本動漫";
+export const DEFAULT_STYLE = "Q版萌系插畫(畫風設定：可愛、活潑、2D平面)";
 
 export const LANGUAGES = [
   "Traditional Chinese (繁體中文)",
