@@ -1516,10 +1516,12 @@ export const App = () => {
                                     </div>
                                 </div>
                             )}
-                        </main>
-    {isProcessing && <Loader message={loadingMsg} />}
-                <MagicEditor isOpen={magicEditorOpen} imageUrl={editorImage} onClose={() => setMagicEditorOpen(false)} onGenerate={handleMagicGenerate} isProcessing={isProcessing} isAnimated={false} />
-                <HelpModal isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
+                        </div>
+                    )}
+            </main>
+            {isProcessing && <Loader message={loadingMsg} />}
+            <MagicEditor isOpen={magicEditorOpen} imageUrl={editorImage} onClose={() => setMagicEditorOpen(false)} onGenerate={handleMagicGenerate} isProcessing={isProcessing} isAnimated={false} />
+            <HelpModal isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
         </div >
     );
 }
