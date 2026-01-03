@@ -828,7 +828,7 @@ export const App = () => {
         <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-20">
             <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b border-slate-200 px-6 py-4 flex justify-between items-center shadow-sm">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg overflow-hidden">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
                         <img src="./logo.png" className="w-full h-full object-cover" alt="Logo" />
                     </div>
                     <div>
