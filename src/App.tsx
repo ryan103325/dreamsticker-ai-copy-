@@ -1042,7 +1042,7 @@ export const App = () => {
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-20">
+        <div className={`min-h-screen transition-colors duration-500 font-sans pb-20 selection:bg-indigo-200 selection:text-indigo-900 ${theme === 'dark' ? 'bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white' : 'bg-slate-50 text-slate-800'}`}>
             {/* Navbar */}
             <nav className={`sticky top-0 z-40 px-3 sm:px-6 py-4 flex justify-between items-center shadow-sm backdrop-blur-md transition-all ${theme === 'dark' ? 'bg-black/80 border-b border-white/10' : 'bg-white/80 border-b border-slate-200'}`}>
                 <div className="flex items-center gap-2 sm:gap-3 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => window.location.reload()}>
@@ -1123,22 +1123,22 @@ export const App = () => {
                                 )}
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
-                                    <div onClick={() => { setInputMode('PHOTO'); setCharCount(1); }} className={`cursor-pointer p-8 rounded-3xl border-2 hover:shadow-xl hover:-translate-y-1 transition-all group ${theme === 'dark' ? 'bg-white/5 border-white/10 hover:border-indigo-400 backdrop-blur-sm' : 'bg-white border-white hover:border-indigo-500'}`}>
+                                    <div onClick={() => { setInputMode('PHOTO'); setCharCount(1); }} className={`cursor-pointer p-8 rounded-3xl border-2 hover:-translate-y-1 transition-all group ${theme === 'dark' ? 'bg-white/10 border-white/10 hover:border-indigo-400 hover:bg-white/15 backdrop-blur-md shadow-lg ring-1 ring-white/5' : 'bg-white border-white hover:border-indigo-500 hover:shadow-xl'}`}>
                                         <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">📸</div>
                                         <h3 className={`text-xl font-bold mb-2 ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{t('modePhoto')}</h3>
                                         <p className={`text-sm ${theme === 'dark' ? 'text-indigo-200' : 'text-slate-500'}`}>{t('modePhotoDesc')}</p>
                                     </div>
-                                    <div onClick={() => setInputMode('EXISTING_IP')} className={`cursor-pointer p-8 rounded-3xl border-2 hover:shadow-xl hover:-translate-y-1 transition-all group ${theme === 'dark' ? 'bg-white/5 border-white/10 hover:border-purple-400 backdrop-blur-sm' : 'bg-white border-white hover:border-purple-500'}`}>
+                                    <div onClick={() => setInputMode('EXISTING_IP')} className={`cursor-pointer p-8 rounded-3xl border-2 hover:-translate-y-1 transition-all group ${theme === 'dark' ? 'bg-white/10 border-white/10 hover:border-purple-400 hover:bg-white/15 backdrop-blur-md shadow-lg ring-1 ring-white/5' : 'bg-white border-white hover:border-purple-500 hover:shadow-xl'}`}>
                                         <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">🖼️</div>
                                         <h3 className={`text-xl font-bold mb-2 ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{t('modeExisting')}</h3>
                                         <p className={`text-sm ${theme === 'dark' ? 'text-indigo-200' : 'text-slate-500'}`}>{t('modeExistingDesc')}</p>
                                     </div>
-                                    <div onClick={() => setInputMode('TEXT_PROMPT')} className={`cursor-pointer p-8 rounded-3xl border-2 hover:shadow-xl hover:-translate-y-1 transition-all group ${theme === 'dark' ? 'bg-white/5 border-white/10 hover:border-pink-400 backdrop-blur-sm' : 'bg-white border-white hover:border-pink-500'}`}>
+                                    <div onClick={() => setInputMode('TEXT_PROMPT')} className={`cursor-pointer p-8 rounded-3xl border-2 hover:-translate-y-1 transition-all group ${theme === 'dark' ? 'bg-white/10 border-white/10 hover:border-pink-400 hover:bg-white/15 backdrop-blur-md shadow-lg ring-1 ring-white/5' : 'bg-white border-white hover:border-pink-500 hover:shadow-xl'}`}>
                                         <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">📝</div>
                                         <h3 className={`text-xl font-bold mb-2 ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{t('modeText')}</h3>
                                         <p className={`text-sm ${theme === 'dark' ? 'text-indigo-200' : 'text-slate-500'}`}>{t('modeTextDesc')}</p>
                                     </div>
-                                    <div onClick={() => setInputMode('UPLOAD_SHEET')} className={`cursor-pointer p-8 rounded-3xl border-2 hover:shadow-xl hover:-translate-y-1 transition-all group ${theme === 'dark' ? 'bg-white/5 border-white/10 hover:border-amber-400 backdrop-blur-sm' : 'bg-white border-white hover:border-amber-500'}`}>
+                                    <div onClick={() => setInputMode('UPLOAD_SHEET')} className={`cursor-pointer p-8 rounded-3xl border-2 hover:-translate-y-1 transition-all group ${theme === 'dark' ? 'bg-white/10 border-white/10 hover:border-amber-400 hover:bg-white/15 backdrop-blur-md shadow-lg ring-1 ring-white/5' : 'bg-white border-white hover:border-amber-500 hover:shadow-xl'}`}>
                                         <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">📂</div>
                                         <h3 className={`text-xl font-bold mb-2 ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{t('modeUtility')}</h3>
                                         <p className={`text-sm ${theme === 'dark' ? 'text-indigo-200' : 'text-slate-500'}`}>{t('modeUtilityDesc')}</p>
