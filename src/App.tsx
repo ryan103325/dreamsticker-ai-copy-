@@ -22,6 +22,7 @@ import {
     EMOJI_SPECS,
     CharacterInput
 } from './types';
+import { translations, LanguageCode } from './i18n';
 import { generateIPCharacter, generateStickerSheet, editSticker, parseStickerIdeas, generateStickerPackageInfo, generateRandomCharacterPrompt, generateVisualDescription, generateGroupCharacterSheet, analyzeImageForCharacterDescription, generateCharacterDescriptionFromKeyword, translateActionToEnglish } from './services/geminiService';
 import { generateFrameZip, wait, resizeImage, extractDominantColors, blobToDataUrl, getFontFamily, processGreenScreenImage, generateTabImage } from './services/utils';
 import { processGreenScreenAndSlice, waitForOpenCV } from './services/opencvService';
@@ -177,6 +178,9 @@ const StickerCard: React.FC<StickerCardProps> = ({
 
 export const App = () => {
     // const [apiKeyReady, setApiKeyReady] = useState(false); // Removed
+    const [sysLang, setSysLang] = useState<LanguageCode>('zh'); // System UI Language
+    const t = translations[sysLang]; // I18n Helper
+
     const [appStep, setAppStep] = useState<AppStep | number>(AppStep.UPLOAD);
     const [inputMode, setInputMode] = useState<InputMode | null>(null);
 
@@ -821,7 +825,7 @@ export const App = () => {
 
 
     if (!hasKey) {
-        return <LandingPage onStart={setKeyAndStart} />;
+        return <LandingPage onStart={setKeyAndStart} lang={sysLang} setLang={setSysLang} />;
     }
 
     return (
@@ -840,16 +844,22 @@ export const App = () => {
                 </div>
                 <div className="flex gap-2">
                     <button
+                        onClick={() => setSysLang(sysLang === 'zh' ? 'en' : 'zh')}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg text-xs font-bold transition-all flex items-center gap-1"
+                    >
+                        <span>🌐</span> {sysLang === 'zh' ? 'EN' : '中'}
+                    </button>
+                    <button
                         onClick={() => {
-                            if (confirm('確定要更換 API Key 嗎？這將會清除目前的連線設定。')) {
+                            if (confirm(t.confirmChangeKey)) {
                                 localStorage.removeItem('gemini_api_key');
                                 window.location.reload();
                             }
                         }}
                         className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg text-xs font-bold transition-all flex items-center gap-1"
-                        title="更換 API Key"
+                        title={t.changeKey}
                     >
-                        <span>🔑</span> 更換 Key
+                        <span>🔑</span> {t.changeKey}
                     </button>
                     <button onClick={() => setHelpOpen(true)} className="p-2 hover:bg-indigo-50 rounded-full text-indigo-600 transition-colors">
                         <HelpIcon />
@@ -866,7 +876,7 @@ export const App = () => {
                         <div className="bg-white p-1.5 rounded-full shadow-sm group-hover:shadow border border-slate-200 group-hover:border-indigo-200 transition-all">
                             <ArrowLeftIcon />
                         </div>
-                        <span>返回上一步</span>
+                        <span>{t.backStep}</span>
                     </button>
                 )}
 
@@ -876,8 +886,8 @@ export const App = () => {
                         {!inputMode && (
                             <>
                                 <div className="text-center space-y-4">
-                                    <h2 className="text-4xl font-black text-slate-800">創造您的專屬 IP 角色</h2>
-                                    <p className="text-slate-500 text-lg">選擇一種方式開始，AI 將為您打造獨一無二的貼圖主角</p>
+                                    <h2 className="text-4xl font-black text-slate-800">{t.mainTitle}</h2>
+                                    <p className="text-slate-500 text-lg">{t.mainSubtitle}</p>
                                 </div>
 
                                 {/* PRODUCT MODE SWITCHER */}
@@ -887,42 +897,42 @@ export const App = () => {
                                             onClick={() => setStickerType('STATIC')}
                                             className={`px-6 py-2 rounded-lg font-bold transition-all ${stickerType === 'STATIC' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
                                         >
-                                            一般貼圖 (Stickers)
+                                            {t.stickerMode}
                                         </button>
                                         <button
                                             onClick={() => setStickerType('EMOJI')}
                                             className={`px-6 py-2 rounded-lg font-bold transition-all ${stickerType === 'EMOJI' ? 'bg-white text-pink-600 shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
                                         >
-                                            LINE 表情貼 (Emojis)
+                                            {t.emojiMode}
                                         </button>
                                     </div>
                                 </div>
                                 {stickerType === 'EMOJI' && (
                                     <div className="text-center text-sm text-pink-500 font-bold mb-8 animate-fade-in">
-                                        ＊表情貼模式：尺寸 180x180 px，無白邊，適合連續輸入
+                                        {t.emojiNote}
                                     </div>
                                 )}
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
                                     <div onClick={() => { setInputMode('PHOTO'); setCharCount(1); }} className="cursor-pointer p-8 rounded-3xl border-2 border-white bg-white hover:border-indigo-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
                                         <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">📸</div>
-                                        <h3 className="text-xl font-bold mb-2">照片轉 IP</h3>
-                                        <p className="text-sm text-slate-500">支援單人、雙人、多人合照，自動轉換為卡通形象。</p>
+                                        <h3 className="text-xl font-bold mb-2">{t.modePhoto}</h3>
+                                        <p className="text-sm text-slate-500">{t.modePhotoDesc}</p>
                                     </div>
                                     <div onClick={() => setInputMode('EXISTING_IP')} className="cursor-pointer p-8 rounded-3xl border-2 border-white bg-white hover:border-purple-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
                                         <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">🖼️</div>
-                                        <h3 className="text-xl font-bold mb-2">現有 IP</h3>
-                                        <p className="text-sm text-slate-500">保留原圖風格，僅製作不同表情。</p>
+                                        <h3 className="text-xl font-bold mb-2">{t.modeExisting}</h3>
+                                        <p className="text-sm text-slate-500">{t.modeExistingDesc}</p>
                                     </div>
                                     <div onClick={() => setInputMode('TEXT_PROMPT')} className="cursor-pointer p-8 rounded-3xl border-2 border-white bg-white hover:border-pink-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
                                         <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">📝</div>
-                                        <h3 className="text-xl font-bold mb-2">文字生成</h3>
-                                        <p className="text-sm text-slate-500">輸入描述，無中生有創造角色。</p>
+                                        <h3 className="text-xl font-bold mb-2">{t.modeText}</h3>
+                                        <p className="text-sm text-slate-500">{t.modeTextDesc}</p>
                                     </div>
                                     <div onClick={() => setInputMode('UPLOAD_SHEET')} className="cursor-pointer p-8 rounded-3xl border-2 border-white bg-white hover:border-amber-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
                                         <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">📂</div>
-                                        <h3 className="text-xl font-bold mb-2">上傳底圖</h3>
-                                        <p className="text-sm text-slate-500">已有做好的拼圖？直接上傳進行切割。</p>
+                                        <h3 className="text-xl font-bold mb-2">{t.modeUtility}</h3>
+                                        <p className="text-sm text-slate-500">{t.modeUtilityDesc}</p>
                                     </div>
                                 </div>
                             </>
