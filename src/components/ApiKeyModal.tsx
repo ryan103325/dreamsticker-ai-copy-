@@ -95,38 +95,51 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
                                                 <span className="text-xs opactiy-50">↗</span>
                                             </a>
                                             <div className="text-xs text-center text-gray-500 max-w-xs mx-auto">
-                                                Click to create a key. <br />Remember the project name!
+                                                Click "Create API key" in AI Studio.<br />
+                                                It will appear in the specific list.
                                             </div>
                                         </div>
                                     )}
 
                                     {activeStep === 2 && (
-                                        <div className="w-full max-w-sm bg-white/5 p-4 rounded border border-white/10 text-center">
-                                            <div className="text-gray-400 text-sm mb-2">Google Cloud Console</div>
-                                            <div className="flex bg-black/50 p-2 rounded mb-3 border border-white/10 justify-between items-center px-4">
-                                                <span className="text-white font-mono text-xs">Generative Language Client...</span>
-                                                <span className="text-gray-500">▼</span>
+                                        <div className="w-full max-w-lg bg-[#1e1f20] p-4 rounded-xl border border-white/10 text-left font-sans text-xs">
+                                            <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
+                                                <span className="text-white font-bold text-sm">API Keys</span>
+                                                <span className="bg-white/10 px-2 py-1 rounded text-white/50 text-[10px]">+ Create API key</span>
                                             </div>
-                                            <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300 underline text-sm block mt-2">
-                                                {t('cloudConsoleLink')} ↗
-                                            </a>
+
+                                            {/* Table Header */}
+                                            <div className="grid grid-cols-4 gap-4 text-gray-500 mb-2 px-2">
+                                                <div className="col-span-1">Key</div>
+                                                <div className="col-span-1">Project</div>
+                                                <div className="col-span-2">Quota tier</div>
+                                            </div>
+
+                                            {/* Table Row */}
+                                            <div className="grid grid-cols-4 gap-4 items-center bg-white/5 p-2 rounded border border-white/5 relative">
+                                                <div className="col-span-1 text-white truncate">...ABC1234</div>
+                                                <div className="col-span-1 text-blue-400 truncate">My Project</div>
+                                                <div className="col-span-2">
+                                                    <div className="text-blue-400 font-bold underline animate-pulse">Set up billing</div>
+                                                    <div className="text-gray-500 text-[10px]">Free tier</div>
+                                                </div>
+
+                                                {/* Cursor Pointer */}
+                                                <div className="absolute right-4 bottom-2 text-2xl text-white drop-shadow-md animate-bounce">👆</div>
+                                            </div>
                                         </div>
                                     )}
 
                                     {activeStep === 3 && (
-                                        <div className="space-y-2 w-full max-w-xs p-4 bg-white/5 rounded border border-white/10">
-                                            <div className="w-full p-2 bg-transparent text-gray-400 text-sm border-b border-white/10 mb-2">
-                                                ≡  Navigation Menu
+                                        <div className="w-full max-w-sm bg-white p-4 rounded-lg border border-gray-200 shadow-lg text-black text-center">
+                                            <div className="font-bold text-lg mb-2">Enable Billing</div>
+                                            <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 mb-3 text-sm text-blue-800">
+                                                Link a billing account to upgrade from Free Tier to Pay-as-you-go.
                                             </div>
-                                            <div className="ml-2 flex items-center gap-2 text-white/50">
-                                                <span>🏠</span> Dashboard
+                                            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden mb-1">
+                                                <div className="h-full w-2/3 bg-blue-500"></div>
                                             </div>
-                                            <div className="ml-2 flex items-center gap-2 text-amber-300 bg-amber-500/10 p-1 rounded font-bold border border-amber-500/20">
-                                                <span>💳</span> Billing
-                                            </div>
-                                            <div className="ml-8 text-xs text-gray-500">
-                                                ↳ Link Billing Account
-                                            </div>
+                                            <span className="text-xs text-gray-400">Google Cloud Platform</span>
                                         </div>
                                     )}
 
