@@ -304,7 +304,7 @@ const ExternalPromptGenerator = ({ onApply, isProcessing, characterType }: { onA
                             disabled={isProcessing || isGeneratingPlan}
                             className="w-full py-2 text-xs bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold rounded shadow-md hover:shadow-lg disabled:opacity-50"
                         >
-                            {isGeneratingPlan ? '生成中...' : '✨ 由 AI 生成 (Use Gemini 2.5 Flash)'}
+                            {isGeneratingPlan ? '生成中...' : '✨ 由 AI 生成'}
                         </button>
                     </div>
 
@@ -661,10 +661,16 @@ export const App = () => {
         if (!inputMode) return;
 
         // Check validation for Group Mode
-        if (inputMode === 'PHOTO' && charCount > 1) {
-            // Validation removed to make description optional
-        } else if (!sourceImage && inputMode !== 'TEXT_PROMPT' && !(inputMode === 'PHOTO' && charCount > 1)) {
-            return alert("請先上傳圖片或輸入描述！");
+        if (inputMode === 'PHOTO') {
+            // PHOTO Mode: Image is required, Description is OPTIONAL (from keyword input)
+            if (charCount > 1 && groupChars.some(c => !c.image)) return alert("請為所有角色上傳圖片！");
+            if (charCount === 1 && !sourceImage) return alert("請上傳圖片！");
+        } else if (!sourceImage && inputMode !== 'TEXT_PROMPT') {
+            // EXISTING_IP or UPLOAD_SHEET: Image required
+            return alert("請先上傳圖片！");
+        } else if (inputMode === 'TEXT_PROMPT' && !promptText) {
+            // TEXT_PROMPT: Prompt required
+            return alert("請輸入描述！");
         }
 
         setIsProcessing(true);
@@ -1140,7 +1146,7 @@ export const App = () => {
                                             <div className="flex items-center justify-between">
                                                 <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
                                                     <span>👥</span> 設定角色數量
-                                                    <span className="text-xs font-normal text-slate-400 bg-white px-2 py-0.5 rounded border border-slate-200">單人 / 雙人 (目前上限 2 人)</span>
+                                                    <span className="text-xs font-normal text-slate-400 bg-white px-2 py-0.5 rounded border border-slate-200">單人 / 雙人</span>
                                                 </label>
                                                 <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
                                                     <button

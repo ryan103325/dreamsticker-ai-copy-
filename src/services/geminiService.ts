@@ -740,7 +740,10 @@ export const generateStickerPlan = async (qty: number, category: string, charact
 2. **禁止 Emoji**：輸出內容中嚴禁出現任何表情符號（Emoji）。
 3. **視覺一致性**：英文指令（Prompt）必須是針對 AI 繪圖工具（如 Midjourney）可理解的視覺描述，而非僅僅是文意翻譯，必須精確描述表情、肢體動作與氛圍。
 4. **角色一致性**：既然已經指定了「主角設定」，所有的英文 Prompt 必須嚴格遵循此角色設定 (例如若是 Animal，就不能寫 person)。
-5. **文字簡潔**：貼圖上的文字（Text）必須短促有力，適合手機畫面閱讀。
+5. **角色登場與互動**：若「主角設定」為雙人，請依貼圖情境自由判斷是「雙人互動」還是「單人獨角戲」。
+    - 若是**雙人互動**，必須明確描述 A 與 B 分別的動作 (e.g. "Character A is hugging Character B").
+    - 若是**單人獨角戲**，必須明確指定是哪一位 (e.g. "Character A is crying" alone).
+6. **文字簡潔**：貼圖上的文字（Text）必須短促有力，適合手機畫面閱讀。
 
 # Output Format
 請依序條列，格式如下：
