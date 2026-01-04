@@ -8,8 +8,13 @@ interface LandingPageProps {
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
-    const { language, setLanguage, t } = useLanguage();
+    const { language, setLanguage: setSysLang, t } = useLanguage();
     const [key, setKey] = useState("");
+    const [showGuide, setShowGuide] = useState(false);
+
+    const toggleLang = () => {
+        setSysLang(language === 'zh' ? 'en' : 'zh');
+    };
 
     useEffect(() => {
         const stored = loadApiKey();
@@ -25,9 +30,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
         }
     };
 
-    const toggleLang = () => {
-        setLanguage(language === 'zh' ? 'en' : 'zh');
-    };
+
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white p-6 relative overflow-hidden">
@@ -75,11 +78,28 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
                     </button>
                 </form>
 
-                <div className="mt-6 text-center text-xs text-indigo-300">
+                <div className="mt-6 text-center text-xs text-indigo-300 flex flex-col items-center gap-2">
                     <p>{t('noKey')}</p>
-                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-white underline hover:text-indigo-200 mt-1 inline-block">
-                        {t('getKey')}
+                    <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-amber-300 underline hover:text-amber-100 font-bold text-sm bg-black/30 px-4 py-2 rounded-full border border-amber-500/30 hover:border-amber-400 transition-all">
+                        {t('getBillingKey')}
                     </a>
+
+                    <button
+                        onClick={() => setShowGuide(!showGuide)}
+                        className="mt-2 text-white/50 hover:text-white underline text-[10px] transition-colors flex items-center gap-1"
+                    >
+                        {t('howToApply')} <span className="text-[8px]">{showGuide ? '▲' : '▼'}</span>
+                    </button>
+
+                    {showGuide && (
+                        <div className="mt-2 text-left bg-black/40 p-4 rounded-xl border border-white/10 text-indigo-100 space-y-2 w-full text-[11px] leading-relaxed animate-fade-in-up backdrop-blur-md">
+                            <h4 className="font-bold text-white mb-2">{t('guideTitle')}</h4>
+                            <p>{t('guideStep1')}</p>
+                            <p>{t('guideStep2')}</p>
+                            <p>{t('guideStep3')}</p>
+                            <p className="text-amber-300 font-bold bg-amber-500/10 p-1 rounded border border-amber-500/20">{t('guideStep4')}</p>
+                        </div>
+                    )}
                 </div>
                 <div className="mt-4 text-center text-[10px] text-white/40">
                     <p>{t('localSave')}</p>

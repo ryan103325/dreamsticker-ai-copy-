@@ -12,6 +12,14 @@ export const translations = {
         getKey: "前往 Google AI Studio 免費獲取",
         localSave: "為了您的資訊安全，Key 僅保留於本次連線 (Session)，重整網頁後需重新輸入。",
         invalidKey: "請輸入有效的 API Key",
+        apiKeyNote: "注意：本專案使用 Gemini 3.0 繪圖模型，免費版 Key 可能無法使用 (403 Error)。",
+        getBillingKey: "前往 Google Cloud Console 申請 (推薦)",
+        howToApply: "如何申請？(教學)",
+        guideTitle: "Google Cloud API Key 申請步驟：",
+        guideStep1: "1. 建立新專案：點擊左上角專案選單 >「新增專案」。",
+        guideStep2: "2. 啟用 API：搜尋「Generative Language API」並點擊「啟用」。",
+        guideStep3: "3. 建立憑證：前往「憑證 (Credentials)」>「建立憑證」>「API 金鑰」。",
+        guideStep4: "4. (重要) 若使用 Imagen 3，請確保專案已連結帳單帳戶。",
 
         // Navbar
         changeKey: "更換 Key",
@@ -245,6 +253,14 @@ export const translations = {
         getKey: "Get one for free at Google AI Studio",
         localSave: "For your security, the Key is used for this session only and will be cleared on refresh.",
         invalidKey: "Please enter a valid API Key",
+        apiKeyNote: "Note: This app uses Imagen 3.0. Free keys may fail (403).",
+        getBillingKey: "Go to Google Cloud Console (Recommended)",
+        howToApply: "How to apply?",
+        guideTitle: "Steps to get Google Cloud API Key:",
+        guideStep1: "1. Create Project: Click project menu > 'New Project'.",
+        guideStep2: "2. Enable API: Search 'Generative Language API' and 'Enable'.",
+        guideStep3: "3. Create Credentials: Go to 'Credentials' > 'Create Credentials' > 'API Key'.",
+        guideStep4: "4. (Important) Link a billing account for Imagen 3 access.",
 
         // Navbar
         changeKey: "Change Key",
