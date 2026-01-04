@@ -84,7 +84,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
 
                 <div className="mt-6 text-center text-xs text-indigo-300 flex flex-col items-center gap-2">
                     <p>{t('noKey')}</p>
-                    <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-amber-300 underline hover:text-amber-100 font-bold text-sm bg-black/30 px-4 py-2 rounded-full border border-amber-500/30 hover:border-amber-400 transition-all">
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-amber-300 underline hover:text-amber-100 font-bold text-sm bg-black/30 px-4 py-2 rounded-full border border-amber-500/30 hover:border-amber-400 transition-all">
                         {t('getBillingKey')}
                     </a>
 
