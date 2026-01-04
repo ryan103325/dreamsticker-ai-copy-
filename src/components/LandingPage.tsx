@@ -3,6 +3,8 @@ import { useLanguage } from '../LanguageContext';
 import { loadApiKey } from '../services/storageUtils';
 import { MagicWandIcon } from './Icons';
 
+import { ApiKeyModal } from './ApiKeyModal';
+
 interface LandingPageProps {
     onStart: (key: string) => void;
 }
@@ -10,7 +12,7 @@ interface LandingPageProps {
 export const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
     const { language, setLanguage: setSysLang, t } = useLanguage();
     const [key, setKey] = useState("");
-    const [showGuide, setShowGuide] = useState(false);
+    const [showGuideModal, setShowGuideModal] = useState(false);
 
     const toggleLang = () => {
         setSysLang(language === 'zh' ? 'en' : 'zh');
@@ -34,6 +36,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white p-6 relative overflow-hidden">
+            <ApiKeyModal isOpen={showGuideModal} onClose={() => setShowGuideModal(false)} />
+
             {/* Language Toggle */}
             <button
                 onClick={toggleLang}
@@ -85,21 +89,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
                     </a>
 
                     <button
-                        onClick={() => setShowGuide(!showGuide)}
+                        onClick={() => setShowGuideModal(true)}
                         className="mt-2 text-white/50 hover:text-white underline text-[10px] transition-colors flex items-center gap-1"
                     >
-                        {t('howToApply')} <span className="text-[8px]">{showGuide ? '▲' : '▼'}</span>
+                        {t('howToApply')} <span className="text-[8px]">▶</span>
                     </button>
-
-                    {showGuide && (
-                        <div className="mt-2 text-left bg-black/40 p-4 rounded-xl border border-white/10 text-indigo-100 space-y-2 w-full text-[11px] leading-relaxed animate-fade-in-up backdrop-blur-md">
-                            <h4 className="font-bold text-white mb-2">{t('guideTitle')}</h4>
-                            <p>{t('guideStep1')}</p>
-                            <p>{t('guideStep2')}</p>
-                            <p>{t('guideStep3')}</p>
-                            <p className="text-amber-300 font-bold bg-amber-500/10 p-1 rounded border border-amber-500/20">{t('guideStep4')}</p>
-                        </div>
-                    )}
                 </div>
                 <div className="mt-4 text-center text-[10px] text-white/40">
                     <p>{t('localSave')}</p>
