@@ -39,15 +39,15 @@ const SHEET_EDITOR_STEP = AppStep.SHEET_EDITOR;
 
 // Predefined Art Styles for Quick Selection
 const ART_STYLES = [
-    "Q版萌系插畫(畫風設定：可愛、活潑、2D平面)",
-    "3D盲盒公仔(畫風設定：3D渲染，C4D質感，盲盒玩具風格，可愛圓潤。)",
-    "日系動漫賽璐珞(畫風設定：精緻賽璐璐上色，線條清晰，日系動漫風格。)",
-    "照片級寫真(畫風設定：嚴格保持原圖的照片質感、光影與細節，不進行Q版化或風格轉換。)",
-    "水彩手繪(畫風設定：柔和水彩暈染質感，邊緣略帶手繪粗糙感，文青風格。)",
-    "蠟筆童趣(畫風設定：蠟筆筆觸，顆粒感，兒童畫風格，色彩鮮豔飽和。)",
-    "極簡線條(畫風設定：黑白或單色線條為主，極簡風格，沒有過多填色。)",
-    "像素風(畫風設定：復古遊戲、8-bit、點陣圖風格。)",
-    "吉卜力風(畫風設定：手繪質感，宮崎駿風格，色彩飽滿自然，背景夢幻精緻。)"
+    'artStyle_chibi',
+    'artStyle_3d',
+    'artStyle_anime',
+    'artStyle_photo',
+    'artStyle_watercolor',
+    'artStyle_crayon',
+    'artStyle_minimal',
+    'artStyle_pixel',
+    'artStyle_ghibli'
 ];
 
 // Predefined Font Options for Quick Selection
@@ -1488,8 +1488,8 @@ export const App = () => {
                                                                 <div>
                                                                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">{t('promptGenStyle')}</label>
                                                                     <div className="flex flex-wrap gap-2 mb-2">
-                                                                        {ART_STYLES.map(style => (
-                                                                            <button key={style} onClick={() => setPromptArtStyleInput(style)} className={`px-2 py-1 rounded text-[10px] font-bold border transition-all ${promptArtStyleInput === style ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300'}`}>{style.split(/[\(\（]/)[0]}</button>
+                                                                        {ART_STYLES.map(styleKey => (
+                                                                            <button key={styleKey} onClick={() => setPromptArtStyleInput(t(styleKey))} className={`px-2 py-1 rounded text-[10px] font-bold border transition-all ${promptArtStyleInput === t(styleKey) ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300'}`}>{t(styleKey).split(/[\(\（]/)[0]}</button>
                                                                         ))}
                                                                     </div>
                                                                     <input type="text" value={promptArtStyleInput} onChange={e => setPromptArtStyleInput(e.target.value)} className="w-full p-3 rounded-xl border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-indigo-400 outline-none bg-white" placeholder={t('promptGenStylePlaceholder')} />
@@ -1519,10 +1519,9 @@ export const App = () => {
                                             <div className="mb-8">
                                                 <label className="block text-sm font-bold text-slate-700 mb-2">{t('artStyleLabel')}</label>
                                                 <div className="flex flex-wrap gap-2 mb-3">
-                                                    {ART_STYLES.map(style => (
-                                                        <button key={style} onClick={() => setStylePrompt(style)} className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${stylePrompt === style ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-500'}`}>{style.split(/[\(\（]/)[0]}</button>
-                                                    ))}
-                                                </div>
+                                                    {ART_STYLES.map(styleKey => (
+                                                        <button key={styleKey} onClick={() => setStylePrompt(t(styleKey))} className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${stylePrompt === t(styleKey) ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-500'}`}>{t(styleKey).split(/[\(\（]/)[0]}</button>
+                                                    ))}                    </div>
                                                 <div className="relative">
                                                     <input type="text" value={stylePrompt} onChange={(e) => setStylePrompt(e.target.value)} className="w-full p-4 pl-12 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-medium" />
                                                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">🎨</div>
