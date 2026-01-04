@@ -83,7 +83,7 @@ const validateImageDimensions = async (dataUrl: string, targetRatio: number): Pr
  * Updated Logic: TEXT INTEGRATION CHECK.
  * We now WANT text to be present and interactive.
  */
-const validateStickerSheetViaVision = async (base64Image: string): Promise<{ passed: boolean; reason: string }> => {
+export const validateStickerSheetViaVision = async (base64Image: string): Promise<{ passed: boolean; reason: string }> => {
     const ai = getAI();
 
     const validationPrompt = `
@@ -124,7 +124,7 @@ const validateStickerSheetViaVision = async (base64Image: string): Promise<{ pas
             }
         });
 
-        const text = response.text?.replace(/```json\n?|\n?```/g, '') || "{}";
+        const text = response.text?.replace(/```json\n ?|\n ? ```/g, '') || "{}";
         const result = JSON.parse(text);
 
         console.log(`[Vision Validator]`, result);
@@ -137,6 +137,66 @@ const validateStickerSheetViaVision = async (base64Image: string): Promise<{ pas
         return { passed: true, reason: "Validator bypassed" };
     }
 };
+
+/**
+ * AUTO-DETECT CHARACTER TYPE
+ * Uses Vision AI to classify the subject of the uploaded image.
+ */
+export const analyzeImageSubject = async (base64Image: string): Promise<string> => {
+    const ai = getAI();
+    const prompt = `Analyze the main subject(s) in this image and classify them into exactly ONE of the following categories:
+    - Animal
+    - Person (Male)
+    - Person (Female)
+    - Person (2 Male)
+    - Person (2 Female)
+    - Person (Male + Female)
+    - Other
+
+    Rules:
+    1. If there is 1 animal/creature/mascot, return "Animal".
+    2. If there are 2 animals, also return "Animal".
+    3. If there is 1 human male, return "Person (Male)".
+    4. If there is 1 human female, return "Person (Female)".
+    5. If there are 2 human males, return "Person (2 Male)".
+    6. If there are 2 human females, return "Person (2 Female)".
+    7. If there is 1 male and 1 female, return "Person (Male + Female)".
+    8. Prioritize the most prominent figures.
+
+    Return ONLY the category string. No explanation.`;
+
+    return callWithRetry(async () => {
+        const response = await ai.models.generateContent({
+            model: TEXT_MODEL, // Using gemini-2.5-flash which supports vision
+            contents: [
+                {
+                    parts: [
+                        { text: prompt },
+                        { inlineData: { mimeType: "image/png", data: stripMimeType(base64Image) } }
+                    ]
+                }
+            ]
+        });
+        validateResponse(response);
+        const result = response.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "Other";
+        console.log(`[Auto-Detect] Result: ${result}`);
+
+        // Map raw result to UI expected values if needed, or ensure prompt returns exact UI values.
+        // UI expects: "Animal (動物)", "Person (人物)" etc.
+        // Let's do a quick map here or in the App. 
+        // Better to return a standardized key and map in App, OR return the App-friendly string directly.
+        // User requested: "Animal", "Person (Male)", "Person (Female)", "Person (2 Male)", "Person (2 Female)", "Person (Male + Female)"
+
+        // Let's map to the exact strings used in App.tsx options for seamless integration.
+        // Single Mode Options: 'Animal (動物)', 'Person (人物)' -> Actually App uses generic 'Person (人物)' for single, but we can be more specific now?
+        // Dual Mode Options: 'Animals (動物)', 'Person (2 Male / 兩男)', 'Person (2 Female / 兩女)', 'Person (Male + Female / 男女)'
+
+        // Let's stick to the Keys and map them in App.tsx to avoid hardcoding UI strings in service.
+        return result;
+    });
+};
+
+
 
 export const parseStickerIdeas = async (rawText: string, includeText: boolean = true): Promise<{ text: string, emotionPromptCN: string, emotionPrompt: string }[]> => {
     const ai = getAI();
@@ -151,27 +211,27 @@ export const parseStickerIdeas = async (rawText: string, includeText: boolean = 
     Task: Parse the User's Input Notes into a structured JSON list of sticker ideas.
 
     [STRICT PARSING & SPLITTING RULES]
-    1. **Delimiters**: You MUST treat the following as separators for distinct stickers:
-       - **Spaces** (e.g., "Hi Hello Thanks" -> 3 items: "Hi", "Hello", "Thanks").
-       - **Caesura/顿号** (、).
-       - **Commas** (, ，).
-       - **Line Breaks**.
-       - **Numbering** (1. 2. 3. or 1, 2, 3).
-    
-    2. **Numbering Logic**: 
-       - If the input is numbered (e.g., "1. Happy, 3. Sad"), IGNORE the specific number value.
-       - Treat them as a sequential list (Item 1, Item 2).
-       - Do NOT skip empty numbers. Just pack them sequentially.
+1. ** Delimiters **: You MUST treat the following as separators for distinct stickers:
+       - ** Spaces ** (e.g., "Hi Hello Thanks" -> 3 items: "Hi", "Hello", "Thanks").
+       - ** Caesura / 顿号 ** (、).
+       - ** Commas ** (, ，).
+       - ** Line Breaks **.
+       - ** Numbering ** (1. 2. 3. or 1, 2, 3).
 
-    3. **Content Cleanup**:
-       - Remove any numbering (1., 2.) from the final "text".
-       - Remove emojis from the "text" field (keep text clean).
+2. ** Numbering Logic **:
+- If the input is numbered(e.g., "1. Happy, 3. Sad"), IGNORE the specific number value.
+       - Treat them as a sequential list(Item 1, Item 2).
+       - Do NOT skip empty numbers.Just pack them sequentially.
+
+    3. ** Content Cleanup **:
+- Remove any numbering(1., 2.) from the final "text".
+       - Remove emojis from the "text" field(keep text clean).
 
     [OUTPUT FORMAT]
-    Return a JSON Array of objects. Each object must have:
+    Return a JSON Array of objects.Each object must have:
     ${textInstruction}
-    - "emotionPromptCN": A visual description of the action in Traditional Chinese (e.g., "女孩揮手打招呼，背景有太陽").
-    - "emotionPrompt": A concise English visual prompt for Image Generation based on the Chinese description (e.g., "Cute girl waving hand happily, morning sun background").
+- "emotionPromptCN": A visual description of the action in Traditional Chinese(e.g., "女孩揮手打招呼，背景有太陽").
+    - "emotionPrompt": A concise English visual prompt for Image Generation based on the Chinese description(e.g., "Cute girl waving hand happily, morning sun background").
     
     Input Notes: "${rawText}"
     `;
@@ -196,7 +256,7 @@ export const parseStickerIdeas = async (rawText: string, includeText: boolean = 
             }
         });
         try {
-            return JSON.parse(response.text?.replace(/```json\n?|\n?```/g, '') || "[]");
+            return JSON.parse(response.text?.replace(/```json\n ?|\n ? ```/g, '') || "[]");
         } catch (e) { return []; }
     });
 };
@@ -209,9 +269,9 @@ export const translateActionToEnglish = async (cnText: string): Promise<string> 
     const prompt = `
     Task: Translate this Chinese sticker action description into a concise English Visual Prompt for AI Image Generation.
     Input: "${cnText}"
-    Requirements:
-    - Keep it short (under 15 words).
-    - Focus on visual elements (pose, expression, props).
+Requirements:
+- Keep it short(under 15 words).
+    - Focus on visual elements(pose, expression, props).
     - Style: Cute, Chibi.
     - Output ONLY the English text.
     `;
@@ -229,14 +289,14 @@ export const translateActionToEnglish = async (cnText: string): Promise<string> 
 export const generateVisualDescription = async (concept: string): Promise<string> => {
     const ai = getAI();
     const prompt = `
-    Task: Convert this sticker concept: "${concept}" into a concise, high-quality English visual prompt for an AI image generator.
-    
+Task: Convert this sticker concept: "${concept}" into a concise, high - quality English visual prompt for an AI image generator.
+
     Rules:
-    1. **Style:** Chibi character, expressive, sticker art style.
-    2. **Content:** Describe the ACTION and EMOTION based on the concept.
-    3. **No Text:** Do not include instructions about text rendering, focus on the visual action.
-    4. **Language:** Input is likely Chinese. Output MUST be ENGLISH.
-    5. **Conciseness:** Keep it under 15 words.
+1. ** Style:** Chibi character, expressive, sticker art style.
+    2. ** Content:** Describe the ACTION and EMOTION based on the concept.
+    3. ** No Text:** Do not include instructions about text rendering, focus on the visual action.
+    4. ** Language:** Input is likely Chinese.Output MUST be ENGLISH.
+    5. ** Conciseness:** Keep it under 15 words.
     
     Example Input: "早安"
     Example Output: "Cute character waving hand happily, sunshine background, big smile, energetic pose."
@@ -259,11 +319,11 @@ export const generateVisualDescription = async (concept: string): Promise<string
 export const generateStickerPackageInfo = async (mainImageUrl: string, stickerTexts: string[]): Promise<StickerPackageInfo> => {
     const ai = getAI();
     const prompt = `
-    Generate LINE Sticker metadata (Title/Desc in EN/ZH) for these stickers: ${stickerTexts.join(', ')}.
-    
-    [CONSTRAINT FOR ENGLISH DESCRIPTION]
-    - **CRITICAL:** The English description must be **UNDER 160 CHARACTERS**.
-    - Write exactly **ONE concise sentence**.
+    Generate LINE Sticker metadata(Title / Desc in EN / ZH) for these stickers: ${stickerTexts.join(', ')}.
+
+[CONSTRAINT FOR ENGLISH DESCRIPTION]
+    - ** CRITICAL:** The English description must be ** UNDER 160 CHARACTERS **.
+    - Write exactly ** ONE concise sentence **.
     - Example: "Express your daily moods with these cute and funny characters."
     `;
 
@@ -292,29 +352,29 @@ export const generateIPCharacter = async (sourceImageDataUrl: string, style: str
     const ai = getAI();
 
     // Updated IP Character Prompt: FULL BODY + 15px BORDER
-    const coreRequirements = `Create a "Character Design Sheet" on solid green (#00FF00). Show Front, Side, and Action. Style: ${style}. 
-    
-    [STRICT LAYOUT RULES]
-    1. **Background**: PURE SOLID GREEN (#00FF00) ONLY. 
+    const coreRequirements = `Create a "Character Design Sheet" on solid green(#00FF00).Show Front, Side, and Action.Style: ${style}.
+
+[STRICT LAYOUT RULES]
+1. ** Background **: PURE SOLID GREEN(#00FF00) ONLY. 
        - NO shadows, NO gradients, NO floor lines, NO horizon lines.
-    2. **Color Safety (CRITICAL)**: 
-       - **NO Green Camouflage**: Do NOT use Bright Green (#00FF00) inside the character design.
-       - **Fade-to-White**: Any transparency/glow effects must gradient into WHITE, NOT into the green background.
-    3. **Content**: Only the character figures (Front, Side, Action). 
-       - **CRITICAL REQUIREMENT: FULL BODY (Head to Toe).**
-       - **Do NOT crop the feet or legs.** 
-       - All 3 views must show the complete character from top of head to bottom of shoes.
-       - Do NOT include any props (unless held), scenery, or background elements.
-    4. **Style**: 
-       - Add a consistent **Extra Thick (15px) Solid WHITE sticker outline** around each figure.
-       - **ENSURE FULL BODY VISIBILITY.**
+    2. ** Color Safety(CRITICAL) **: 
+       - ** NO Green Camouflage **: Do NOT use Bright Green(#00FF00) inside the character design.
+       - ** Fade - to - White **: Any transparency / glow effects must gradient into WHITE, NOT into the green background.
+    3. ** Content **: Only the character figures(Front, Side, Action). 
+       - ** CRITICAL REQUIREMENT: FULL BODY(Head to Toe).**
+       - ** Do NOT crop the feet or legs.**
+    - All 3 views must show the complete character from top of head to bottom of shoes.
+       - Do NOT include any props(unless held), scenery, or background elements.
+    4. ** Style **:
+- Add a consistent ** Extra Thick(15px) Solid WHITE sticker outline ** around each figure.
+       - ** ENSURE FULL BODY VISIBILITY.**
     `;
 
     let parts: any[] = [];
     if (inputMode === 'TEXT_PROMPT') {
-        parts = [{ text: `Create unique IP character: "${sourceImageDataUrl}".\n${coreRequirements}` }];
+        parts = [{ text: `Create unique IP character: "${sourceImageDataUrl}".\n${coreRequirements} ` }];
     } else {
-        parts = [{ inlineData: { mimeType: getMimeType(sourceImageDataUrl), data: stripMimeType(sourceImageDataUrl) } }, { text: `Transform IP character.\n${coreRequirements}` }];
+        parts = [{ inlineData: { mimeType: getMimeType(sourceImageDataUrl), data: stripMimeType(sourceImageDataUrl) } }, { text: `Transform IP character.\n${coreRequirements} ` }];
     }
 
     return callWithRetry(async () => {
@@ -326,7 +386,7 @@ export const generateIPCharacter = async (sourceImageDataUrl: string, style: str
         validateResponse(response);
         const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
         if (!part?.inlineData?.data) throw new Error("No image data.");
-        return { id: `char-${Date.now()}`, url: `data:image/png;base64,${part.inlineData.data}`, type: 'STATIC' };
+        return { id: `char - ${Date.now()} `, url: `data: image / png; base64, ${part.inlineData.data} `, type: 'STATIC' };
     });
 };
 
@@ -336,22 +396,22 @@ export const generateIPCharacter = async (sourceImageDataUrl: string, style: str
 export const analyzeImageForCharacterDescription = async (base64Image: string): Promise<string> => {
     const ai = getAI();
     const prompt = `
-    請擔任專業的角色設計師助手。
-    任務：仔細觀察這張參考圖片，並用「繁體中文」描述圖中主要角色的外觀特徵。
-    
-    重點描述：
-    1. 性別與年齡感 (如：年輕女性、小男孩、老爺爺)。
-    2. 髮型與髮色。
-    3. 眼睛特徵 (如：眼鏡、顏色)。
-    4. 服裝細節 (顏色、款式)。
-    5. 顯著配件 (如：帽子、圍巾)。
+請擔任專業的角色設計師助手。
+任務：仔細觀察這張參考圖片，並用「繁體中文」描述圖中主要角色的外觀特徵。
 
-    輸出要求：
-    - 請使用簡潔的描述性語句。
-    - 不要包含無關的背景描述。
-    - 字數控制在 50 字以內。
-    - 直接輸出內容，不要有開場白。
-    `;
+重點描述：
+1. 性別與年齡感(如：年輕女性、小男孩、老爺爺)。
+2. 髮型與髮色。
+3. 眼睛特徵(如：眼鏡、顏色)。
+4. 服裝細節(顏色、款式)。
+5. 顯著配件(如：帽子、圍巾)。
+
+輸出要求：
+- 請使用簡潔的描述性語句。
+- 不要包含無關的背景描述。
+- 字數控制在 50 字以內。
+- 直接輸出內容，不要有開場白。
+`;
 
     return callWithRetry(async () => {
         const response = await ai.models.generateContent({
@@ -375,22 +435,22 @@ export const generateCharacterDescriptionFromKeyword = async (keyword: string): 
     const ai = getAI();
     const prompt = `
     請擔任專業的 IP 角色設計師。
-    任務：根據使用者提供的關鍵字「${keyword}」，發想一個適合做 Line 貼圖的「創意、獨特、不落俗套」的角色外觀描述。
+任務：根據使用者提供的關鍵字「${keyword}」，發想一個適合做 Line 貼圖的「創意、獨特、不落俗套」的角色外觀描述。
 
-    要求：
-    1. **語言**：繁體中文。
-    2. **創意腦力激盪**：
-       - 利用「超現實主義」或「意想不到的結合」。
-       - 避免刻板印象 (例如提到貓就只想到吃魚)。
-       - 可以加入有趣的職業、情緒、或奇幻元素。
-    3. **字數**：約 50-80 字。
-    4. **內容**：具體描述角色的顏色、特徵、配件、服裝。
-    5. **風格**：可愛、鮮明、有特色。
-    6. **直接輸出**：直接給出描述內容，不需要「好的」、「以下是描述」等廢話。
+要求：
+1. ** 語言 **：繁體中文。
+2. ** 創意腦力激盪 **：
+- 利用「超現實主義」或「意想不到的結合」。
+- 避免刻板印象(例如提到貓就只想到吃魚)。
+- 可以加入有趣的職業、情緒、或奇幻元素。
+3. ** 字數 **：約 50 - 80 字。
+4. ** 內容 **：具體描述角色的顏色、特徵、配件、服裝。
+5. ** 風格 **：可愛、鮮明、有特色。
+6. ** 直接輸出 **：直接給出描述內容，不需要「好的」、「以下是描述」等廢話。
 
-    範例關鍵字：「柯基」
-    範例輸出：「一隻漂浮在空中的宇航員柯基犬，身穿銀色反光太空衣，頭盔裡塞滿了彩色甜甜圈，眼神充滿對宇宙的好奇。」
-    `;
+範例關鍵字：「柯基」
+範例輸出：「一隻漂浮在空中的宇航員柯基犬，身穿銀色反光太空衣，頭盔裡塞滿了彩色甜甜圈，眼神充滿對宇宙的好奇。」
+`;
 
     return callWithRetry(async () => {
         const response = await ai.models.generateContent({
@@ -410,25 +470,25 @@ export const generateCharacterDescriptionFromKeyword = async (keyword: string): 
 export const generateRandomCharacterPrompt = async (type: 'ANIMAL' | 'PERSON', keyword?: string): Promise<string> => {
     const ai = getAI();
 
-    let systemInstruction = `你是創意總監。請設計一個適合 Line 貼圖的「獨特且有創意」的 IP 角色 (${type === 'ANIMAL' ? '動物' : '人物'})。
-    
-    規則：
-    1. **嚴格分類 (STRICT)**：使用者選擇了「${type === 'ANIMAL' ? '動物' : '人物'}」。
-       - 如果是動物，絕對不能出現人類特徵 (如人類皮膚、人臉)。可以是擬人化動物 (穿衣)，但本質必須是動物。
-       - 如果是人物，絕對不能是動物。
-    2. **拒絕平庸**：不要只給「可愛的小貓」或「普通的男孩」。
-    3. **大膽組合**：請隨機結合「職業/身份」+「物種/類型」+「獨特風格」。
-       - 例如：穿著太空衣的倉鼠 (科幻風)、正在做瑜珈的樹懶 (運動風)、戴著單片眼鏡的紳士青蛙 (英倫風)、龐克搖滾風的兔子。
-    4. **鮮明配色**：請指定一組獨特的配色方案 (例如：螢光綠配紫色、黑金配色、粉彩撞色)。
-    5. **細節描述**：描述外觀特徵、配件 (帽子、眼鏡、圍巾) 和個性。
-    
-    輸出要求：
-    - 使用繁體中文。
-    - 50-80字左右。
-    - 直接描述角色，不要有多餘的前言。`;
+    let systemInstruction = `你是創意總監。請設計一個適合 Line 貼圖的「獨特且有創意」的 IP 角色(${type === 'ANIMAL' ? '動物' : '人物'})。
+
+規則：
+1. ** 嚴格分類(STRICT) **：使用者選擇了「${type === 'ANIMAL' ? '動物' : '人物'}」。
+- 如果是動物，絕對不能出現人類特徵(如人類皮膚、人臉)。可以是擬人化動物(穿衣)，但本質必須是動物。
+- 如果是人物，絕對不能是動物。
+2. ** 拒絕平庸 **：不要只給「可愛的小貓」或「普通的男孩」。
+3. ** 大膽組合 **：請隨機結合「職業 / 身份」+「物種 / 類型」+「獨特風格」。
+- 例如：穿著太空衣的倉鼠(科幻風)、正在做瑜珈的樹懶(運動風)、戴著單片眼鏡的紳士青蛙(英倫風)、龐克搖滾風的兔子。
+4. ** 鮮明配色 **：請指定一組獨特的配色方案(例如：螢光綠配紫色、黑金配色、粉彩撞色)。
+5. ** 細節描述 **：描述外觀特徵、配件(帽子、眼鏡、圍巾) 和個性。
+
+輸出要求：
+- 使用繁體中文。
+- 50 - 80字左右。
+- 直接描述角色，不要有多餘的前言。`;
 
     if (keyword && keyword.trim() !== '') {
-        systemInstruction += `\n\n**強制指定元素：${keyword}** (請務必將此關鍵字完美融入設計中)。`;
+        systemInstruction += `\n\n ** 強制指定元素：${keyword}** (請務必將此關鍵字完美融入設計中)。`;
     }
 
     const response = await ai.models.generateContent({
@@ -464,12 +524,12 @@ export const generateGroupCharacterSheet = async (
             parts.push({ inlineData: { mimeType: getMimeType(c.image!), data: stripMimeType(c.image!) } });
             // Map the image index to the character description in the prompt
             // Note: inlineData parts come first in the array, so index 0 matches Part 0
-            sourceAnalysis += `- **Reference Image ${index + 1}** corresponds to **Character ${characters.findIndex(char => char.id === c.id) + 1}** (${c.description}).\n`;
+            sourceAnalysis += `- ** Reference Image ${index + 1}** corresponds to ** Character ${characters.findIndex(char => char.id === c.id) + 1}** (${c.description}).\n`;
         });
 
         sourceAnalysis += `
-        - **IDENTITY MAPPING RULE:** You must strictly map the provided reference images to their specific character slot.
-        - **SEPARATION RULE:** If a reference image contains multiple people (e.g. a group photo), you must MENTALLY ISOLATE the specific person matching the description. Do NOT mix features between characters.
+    - ** IDENTITY MAPPING RULE:** You must strictly map the provided reference images to their specific character slot.
+        - ** SEPARATION RULE:** If a reference image contains multiple people(e.g.a group photo), you must MENTALLY ISOLATE the specific person matching the description.Do NOT mix features between characters.
         `;
     } else {
         sourceAnalysis = "**SOURCE ANALYSIS:** No reference images provided. Generate based strictly on text descriptions.";
@@ -477,42 +537,42 @@ export const generateGroupCharacterSheet = async (
 
     // 2. Dynamic Left Column Prompt (Individual Panels)
     const leftColumnPrompt = characters.map((c, i) => `
-    **[PANEL ${i + 1}] LEFT COLUMN ROW ${i + 1} (Character ${i + 1})**
-    - **SUBJECT:** ONLY Character ${i + 1} (${c.description}).
-    - **CONSTRAINT:** Other characters (Character ${characters.filter((_, idx) => idx !== i).map((_, idx) => idx + 1).join(', ')}) must NOT appear in this panel.
-    - **CONTENT:** Draw 3 distinct facial expressions of Character ${i + 1} (e.g., Front, Side, Happy).
-    - **FOCUS:** FULL BODY (Head to Toe). Scale down to fit the cell height. Do NOT crop feet.
+    ** [PANEL ${i + 1}] LEFT COLUMN ROW ${i + 1} (Character ${i + 1})**
+    - ** SUBJECT:** ONLY Character ${i + 1} (${c.description}).
+    - ** CONSTRAINT:** Other characters(Character ${characters.filter((_, idx) => idx !== i).map((_, idx) => idx + 1).join(', ')}) must NOT appear in this panel.
+    - ** CONTENT:** Draw 3 distinct facial expressions of Character ${i + 1} (e.g., Front, Side, Happy).
+    - ** FOCUS:** FULL BODY(Head to Toe).Scale down to fit the cell height.Do NOT crop feet.
     `).join('\n');
 
     // 3. Right Column Prompt (Group Interaction)
-    const charListString = characters.map((c, i) => `Character ${i + 1}`).join(' + ');
+    const charListString = characters.map((c, i) => `Character ${i + 1} `).join(' + ');
 
     const systemPrompt = `
     ${sourceAnalysis}
 
     A professional 4k Landscape Character Design Sheet for a group of ${characters.length} characters.
-    Style: ${style}, Vector art, **Extra Thick (15px) solid white outlines**, flat color, clean green screen background.
+    Style: ${style}, Vector art, ** Extra Thick(15px) solid white outlines **, flat color, clean green screen background.
 
-    **STRICT COMPOSITION RULE (The "T-Layout"):**
+    ** STRICT COMPOSITION RULE(The "T-Layout"):**
     Imagine the canvas is divided into:
-    1. **Left Column (2/3 width):** Stacked vertically into **${characters.length} equal rows**.
-    2. **Right Column (1/3 width):** A single full-height vertical panel.
+1. ** Left Column(2 / 3 width):** Stacked vertically into ** ${characters.length} equal rows **.
+    2. ** Right Column(1 / 3 width):** A single full - height vertical panel.
 
-    --- INDIVIDUAL PANELS (LEFT COLUMN) ---
+    --- INDIVIDUAL PANELS(LEFT COLUMN)-- -
     ${leftColumnPrompt}
 
-    --- GROUP INTERACTION (RIGHT COLUMN) ---
-    **[RIGHT PANEL] FULL HEIGHT INTERACTION**
-    - **SUBJECT:** All ${characters.length} characters together (${charListString}).
-    - **CONTENT:** Full-body illustration of them standing side-by-side, posing as a team, or interacting.
-    - **PURPOSE:** Show the relative **Height Difference** and outfit coordination.
-    - **VISUAL:** This is the main "Key Visual" of the sheet. Full Body.
+--- GROUP INTERACTION(RIGHT COLUMN)-- -
+    ** [RIGHT PANEL] FULL HEIGHT INTERACTION **
+    - ** SUBJECT:** All ${characters.length} characters together(${charListString}).
+    - ** CONTENT:** Full - body illustration of them standing side - by - side, posing as a team, or interacting.
+    - ** PURPOSE:** Show the relative ** Height Difference ** and outfit coordination.
+    - ** VISUAL:** This is the main "Key Visual" of the sheet.Full Body.
 
-    **ARTISTIC RULES:**
-    1. **Consistency:** Character appearances in individual panels must match the group panel perfectly.
-    2. **Separation:** Ensure there is clear visual space between the panels. Draw faint divider lines if necessary.
-    3. **No Text:** Do not add labels or text.
-    **BACKGROUND**: Pure Green (#00FF00) solid background.
+    ** ARTISTIC RULES:**
+    1. ** Consistency:** Character appearances in individual panels must match the group panel perfectly.
+    2. ** Separation:** Ensure there is clear visual space between the panels.Draw faint divider lines if necessary.
+    3. ** No Text:** Do not add labels or text.
+    ** BACKGROUND **: Pure Green(#00FF00) solid background.
     `;
 
     parts.push({ text: systemPrompt });
@@ -533,8 +593,8 @@ export const generateGroupCharacterSheet = async (
         if (!part?.inlineData?.data) throw new Error("No image data.");
 
         return {
-            id: `group-${Date.now()}`,
-            url: `data:image/png;base64,${part.inlineData.data}`,
+            id: `group - ${Date.now()} `,
+            url: `data: image / png; base64, ${part.inlineData.data} `,
             type: 'STATIC'
         };
     });
@@ -555,7 +615,7 @@ export const generateStickerSheet = async (characterUrl: string, configs: Sticke
     const bestAR = supportedRatios.reduce((prev, curr) => Math.abs(curr.val - ratioVal) < Math.abs(prev.val - ratioVal) ? curr : prev).ar;
     const targetRatio = supportedRatios.find(r => r.ar === bestAR)?.val || 1.0;
 
-    const gridInstructions = configs.map((c, i) => `   - Cell ${i + 1}: Action "${c.emotionPrompt}". ${c.showText ? `TEXT: "${c.text}" (Interact with this text!)` : "NO TEXT"}.`).join('\n');
+    const gridInstructions = configs.map((c, i) => `   - Cell ${i + 1}: Action "${c.emotionPrompt}".${c.showText ? `TEXT: "${c.text}" (Interact with this text!)` : "NO TEXT"}.`).join('\n');
 
     let basePrompt = "";
 
@@ -563,27 +623,27 @@ export const generateStickerSheet = async (characterUrl: string, configs: Sticke
         // --- EMOJI MODE PROMPT ---
         basePrompt = `
     Grid Specification: ${cols} columns x ${rows} rows.
-    Target Resolution: 2K (2048x2048).
+    Target Resolution: 2K(2048x2048).
     [System Role] Icon Designer / Emoji Artist.
-    [Formatting] Center characters. Solid Green (#00FF00) BG.
+    [Formatting] Center characters.Solid Green(#00FF00) BG.
 
-    **DESIGN STYLE: LINE EMOJI (Character Fidelity)**
-    1. **MAINTAIN CHARACTER IDENTITY (CRITICAL)**: You MUST strictly adhere to the Input Character's design.
-       - **COLORS**: Use the EXACT same color palette as the reference image.
-       - **FEATURES**: Keep facial features, hair style/color, and accessories consistent.
-       - **DO NOT** simplify into a generic "stick figure" or "black and white icon" unless the reference is that style.
-    2. **SIZE OPTIMIZATION**: These are small emojis (180px).
-       - Keep lines **Bold and Clear**.
+    ** DESIGN STYLE: LINE EMOJI(Character Fidelity) **
+    1. ** MAINTAIN CHARACTER IDENTITY(CRITICAL) **: You MUST strictly adhere to the Input Character's design.
+        - ** COLORS **: Use the EXACT same color palette as the reference image.
+       - ** FEATURES **: Keep facial features, hair style / color, and accessories consistent.
+       - ** DO NOT ** simplify into a generic "stick figure" or "black and white icon" unless the reference is that style.
+    2. ** SIZE OPTIMIZATION **: These are small emojis(180px).
+       - Keep lines ** Bold and Clear **.
        - Avoid microscopic details that vanish at small sizes.
-       - But **KEEP THE VIBE** of the original character.
-    3. **NO WHITE OUTLINE**: Do NOT add a white border. The character should be **FULL BLEED** (fill the cell).
-    4. **CONNECTABLE**: If possible, design element so they look good when placed next to each other.
+       - But ** KEEP THE VIBE ** of the original character.
+    3. ** NO WHITE OUTLINE **: Do NOT add a white border.The character should be ** FULL BLEED ** (fill the cell).
+4. ** CONNECTABLE **: If possible, design element so they look good when placed next to each other.
 
-    **COLOR SAFETY:**
-    - NO Green (#00FF00) inside the artwork.
-    - If fading, gradient to TRANSPARENT or HARD CUT. No partial opacity on green.
+    ** COLOR SAFETY:**
+    - NO Green(#00FF00) inside the artwork.
+    - If fading, gradient to TRANSPARENT or HARD CUT.No partial opacity on green.
 
-    **ENGINEERING GAP:** Leave a clear **Green River** (empty space) of at least 15px between cells for slicing.
+    ** ENGINEERING GAP:** Leave a clear ** Green River ** (empty space) of at least 15px between cells for slicing.
 
     [Instructions]
     ${gridInstructions}
@@ -592,41 +652,41 @@ export const generateStickerSheet = async (characterUrl: string, configs: Sticke
         // --- STANDARD STICKER MODE PROMPT ---
         basePrompt = `
     Grid Specification: ${cols} columns x ${rows} rows.
-    Target Resolution: 2K (2048x2048).
+    Target Resolution: 2K(2048x2048).
     [System Role] Senior Sticker Artist.
-    [Formatting] Center characters. Solid Green (#00FF00) BG. 
+    [Formatting] Center characters.Solid Green(#00FF00) BG. 
 
-    **COLOR SAFETY & GRADIENT PROTOCOL (CRITICAL FOR CUTTING):**
-    1. **NO CAMOUFLAGE:** STRICTLY PROHIBITED colors inside the artwork: **Bright Green (#00FF00)** or Lime Green. These confuse the background cutter. Use Teal, Blue, or Dark Forest Green instead.
-    2. **FADE-TO-WHITE RULE:** If an object needs to fade (e.g., ghosts, speed lines, magic aura), it MUST gradient into **SOLID WHITE**, NEVER fade into the green background.
-       - *Reasoning:* Fading to Green causes the background remover to delete the object's tail. Fading to White preserves it.
-    3. **SAFETY BARRIER:** Every element (Character + Text + Effects) MUST have a **Thick (15px), Solid WHITE Border** (Sticker Outline). This acts as a safety barrier between the artwork and the green screen.
+    ** COLOR SAFETY & GRADIENT PROTOCOL(CRITICAL FOR CUTTING):**
+    1. ** NO CAMOUFLAGE:** STRICTLY PROHIBITED colors inside the artwork: ** Bright Green(#00FF00) ** or Lime Green.These confuse the background cutter.Use Teal, Blue, or Dark Forest Green instead.
+    2. ** FADE - TO - WHITE RULE:** If an object needs to fade(e.g., ghosts, speed lines, magic aura), it MUST gradient into ** SOLID WHITE **, NEVER fade into the green background.
+       - * Reasoning:* Fading to Green causes the background remover to delete the object's tail. Fading to White preserves it.
+3. ** SAFETY BARRIER:** Every element(Character + Text + Effects) MUST have a ** Thick(15px), Solid WHITE Border ** (Sticker Outline). This acts as a safety barrier between the artwork and the green screen.
 
-    **COMPOSITION:** The final output will be cropped to **370x320 px** (Ratio ~1.15). Standard sticker proportions.
+    ** COMPOSITION:** The final output will be cropped to ** 370x320 px ** (Ratio ~1.15). Standard sticker proportions.
     
-    **TEXT INTERACTION RULE (CRITICAL):**
-    - The text caption is a **Physical Object** in the scene.
-    - The character must **INTERACT** with the text.
-    - **Examples:**
-        - *Holding the text* like a heavy sign.
-        - *Peeking* from behind the text.
-        - *Sitting* on top of the text.
-        - *Kicking* the text (for angry emotions).
-        - *Hugging* the text (for love/thanks).
-    - **Prohibited:** Do NOT place text as a boring subtitle at the bottom. Mix it with the character!
+    ** TEXT INTERACTION RULE(CRITICAL):**
+    - The text caption is a ** Physical Object ** in the scene.
+    - The character must ** INTERACT ** with the text.
+    - ** Examples:**
+    - * Holding the text * like a heavy sign.
+        - * Peeking * from behind the text.
+        - * Sitting * on top of the text.
+        - * Kicking * the text(for angry emotions).
+        - * Hugging * the text(for love / thanks).
+    - ** Prohibited:** Do NOT place text as a boring subtitle at the bottom.Mix it with the character!
 
-    **TYPOGRAPHY STYLE:**
-    - Use **Hand-drawn, Bubble, or Pop Art** font styles.
+    ** TYPOGRAPHY STYLE:**
+    - Use ** Hand - drawn, Bubble, or Pop Art ** font styles.
     - Text should look 'bouncy' and 'elastic'.
-    - Color: Text color must complement the character but stand out (high contrast). Avoid Green text.
+    - Color: Text color must complement the character but stand out(high contrast).Avoid Green text.
 
-    **ENGINEERING GAP:** You MUST leave a clear **Green River** (empty space) of at least 30px between every row and column. This is required for the automated slicing algorithm.
+    ** ENGINEERING GAP:** You MUST leave a clear ** Green River ** (empty space) of at least 30px between every row and column.This is required for the automated slicing algorithm.
 
     [Instructions]
     ${gridInstructions}
-    
-    [FINAL CHECK]
-    Spacing: Ensure > 3% green gap between all stickers (Vertical & Horizontal).
+
+[FINAL CHECK]
+Spacing: Ensure > 3 % green gap between all stickers(Vertical & Horizontal).
     Background: Pure Green, no artifacts.
         `;
     }
@@ -644,7 +704,7 @@ export const generateStickerSheet = async (characterUrl: string, configs: Sticke
             validateResponse(response);
             const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
             if (!part?.inlineData?.data) throw new Error("No data");
-            const finalUrl = `data:image/png;base64,${part.inlineData.data}`;
+            const finalUrl = `data: image / png; base64, ${part.inlineData.data} `;
 
             // Level 1 Check
             const valid = await validateImageDimensions(finalUrl, targetRatio);
@@ -665,17 +725,17 @@ export const editSticker = async (markedImage: string, prompt: string): Promise<
 
     // Updated Inpainting Prompt: Explicitly instruct NOT to just remove red marks, but to GENERATE CONTENT.
     const editPrompt = `
-    [INPAINTING TASK]
+[INPAINTING TASK]
     The input image contains RED BRUSH STROKES. 
-    1. **MASK DEFINITION**: The red areas represent a "Request for Change" mask.
-    2. **GOAL**: You MUST regenerate the content *inside* the red mask area to match this user instruction: "${prompt}".
-    3. **CONSTRAINT**: 
-       - Do NOT just "remove" the red marks and leave empty space.
-       - The input contains a RED MASK. You must completely REMOVE the red color and redraw the area with the requested content.
+    1. ** MASK DEFINITION **: The red areas represent a "Request for Change" mask.
+    2. ** GOAL **: You MUST regenerate the content * inside * the red mask area to match this user instruction: "${prompt}".
+    3. ** CONSTRAINT **:
+- Do NOT just "remove" the red marks and leave empty space.
+       - The input contains a RED MASK.You must completely REMOVE the red color and redraw the area with the requested content.
        - Do NOT just restore the original image.
        - You MUST draw NEW content in that area that blends seamlessly with the rest of the character.
-    4. **BACKGROUND**: Keep the background Pure Green (#00FF00).
-    5. **COLOR SAFETY**: Do NOT use bright green in the new content. If generating effects, fade to WHITE, not green.
+    4. ** BACKGROUND **: Keep the background Pure Green(#00FF00).
+    5. ** COLOR SAFETY **: Do NOT use bright green in the new content.If generating effects, fade to WHITE, not green.
     `;
 
     // Pro -> Flash Fallback
@@ -688,7 +748,7 @@ export const editSticker = async (markedImage: string, prompt: string): Promise<
         validateResponse(response);
         const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
         if (!part?.inlineData?.data) throw new Error("No data");
-        return { id: `edited-${Date.now()}`, url: `data:image/png;base64,${part.inlineData.data}`, type: 'STATIC', status: 'SUCCESS', emotion: 'Edited' };
+        return { id: `edited - ${Date.now()} `, url: `data: image / png; base64, ${part.inlineData.data} `, type: 'STATIC', status: 'SUCCESS', emotion: 'Edited' };
     } catch (e) {
         const response = await ai.models.generateContent({
             model: STICKER_GEN_MODEL_FLASH,
@@ -698,14 +758,14 @@ export const editSticker = async (markedImage: string, prompt: string): Promise<
         validateResponse(response);
         const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
         if (!part?.inlineData?.data) throw new Error("Edit failed.");
-        return { id: `edited-${Date.now()}`, url: `data:image/png;base64,${part.inlineData.data}`, type: 'STATIC', status: 'SUCCESS', emotion: 'Edited' };
+        return { id: `edited - ${Date.now()} `, url: `data: image / png; base64, ${part.inlineData.data} `, type: 'STATIC', status: 'SUCCESS', emotion: 'Edited' };
     }
 };
 
 export const restyleSticker = async (imageUrl: string, filter: ArtisticFilterType): Promise<GeneratedImage> => {
     if (filter === 'ORIGINAL') return { id: 'orig', url: imageUrl, type: 'STATIC' };
     const ai = getAI();
-    const prompt = `Redraw in ${filter} style. Maintain pose/comp. Keep 15px white border.`;
+    const prompt = `Redraw in ${filter} style.Maintain pose / comp.Keep 15px white border.`;
 
     const response = await ai.models.generateContent({
         model: STICKER_GEN_MODEL_FLASH,
@@ -715,7 +775,7 @@ export const restyleSticker = async (imageUrl: string, filter: ArtisticFilterTyp
     validateResponse(response);
     const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
     if (!part?.inlineData?.data) throw new Error("Restyle failed.");
-    return { id: `restyle-${Date.now()}`, url: `data:image/png;base64,${part.inlineData.data}`, type: 'STATIC', status: 'SUCCESS', emotion: filter };
+    return { id: `restyle - ${Date.now()} `, url: `data: image / png; base64, ${part.inlineData.data} `, type: 'STATIC', status: 'SUCCESS', emotion: filter };
 };
 
 /**
@@ -731,19 +791,19 @@ export const generateStickerPlan = async (qty: number, category: string, charact
 
 # Input Data
 請使用者填入以下參數：
-1. **生成數量**：${qty}
-2. **文案種類**：${category}
-3. **主角設定**：${characterType || "未指定 (請自由發揮，但需保持一致)"}
+1. ** 生成數量 **：${qty}
+2. ** 文案種類 **：${category}
+3. ** 主角設定 **：${characterType || "未指定 (請自由發揮，但需保持一致)"}
 
 # Constraints & Rules
-1. **格式嚴格限制**：必須嚴格遵守下方 Output Format 的結構，不得更改標點符號或換行方式。
-2. **禁止 Emoji**：輸出內容中嚴禁出現任何表情符號（Emoji）。
-3. **視覺一致性**：英文指令（Prompt）必須是針對 AI 繪圖工具（如 Midjourney）可理解的視覺描述，而非僅僅是文意翻譯，必須精確描述表情、肢體動作與氛圍。
-4. **角色一致性**：既然已經指定了「主角設定」，所有的英文 Prompt 必須嚴格遵循此角色設定 (例如若是 Animal，就不能寫 person)。
-5. **角色登場與互動**：若「主角設定」為雙人，請依貼圖情境自由判斷是「雙人互動」還是「單人獨角戲」。
-    - 若是**雙人互動**，必須明確描述 A 與 B 分別的動作 (e.g. "Character A is hugging Character B").
-    - 若是**單人獨角戲**，必須明確指定是哪一位 (e.g. "Character A is crying" alone).
-6. **文字簡潔**：貼圖上的文字（Text）必須短促有力，適合手機畫面閱讀。
+1. ** 格式嚴格限制 **：必須嚴格遵守下方 Output Format 的結構，不得更改標點符號或換行方式。
+2. ** 禁止 Emoji **：輸出內容中嚴禁出現任何表情符號（Emoji）。
+3. ** 視覺一致性 **：英文指令（Prompt）必須是針對 AI 繪圖工具（如 Midjourney）可理解的視覺描述，而非僅僅是文意翻譯，必須精確描述表情、肢體動作與氛圍。
+4. ** 角色一致性 **：既然已經指定了「主角設定」，所有的英文 Prompt 必須嚴格遵循此角色設定(例如若是 Animal，就不能寫 person)。
+5. ** 角色登場與互動 **：若「主角設定」為雙人，請依貼圖情境自由判斷是「雙人互動」還是「單人獨角戲」。
+    - 若是 ** 雙人互動 **，必須明確描述 A 與 B 分別的動作(e.g. "Character A is hugging Character B").
+    - 若是 ** 單人獨角戲 **，必須明確指定是哪一位(e.g. "Character A is crying" alone).
+6. ** 文字簡潔 **：貼圖上的文字（Text）必須短促有力，適合手機畫面閱讀。
 
 # Output Format
 請依序條列，格式如下：

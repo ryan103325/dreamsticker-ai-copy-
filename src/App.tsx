@@ -22,8 +22,8 @@ import {
     EMOJI_SPECS,
     CharacterInput
 } from './types';
-import { translations, LanguageCode } from './i18n';
-import { generateIPCharacter, generateStickerSheet, editSticker, parseStickerIdeas, generateStickerPackageInfo, generateRandomCharacterPrompt, generateVisualDescription, generateGroupCharacterSheet, analyzeImageForCharacterDescription, generateCharacterDescriptionFromKeyword, translateActionToEnglish, generateStickerPlan, parseStructuredStickerPlan } from './services/geminiService';
+import { useLanguage } from './LanguageContext';
+import { generateIPCharacter, generateStickerSheet, editSticker, parseStickerIdeas, generateStickerPackageInfo, generateRandomCharacterPrompt, generateVisualDescription, generateGroupCharacterSheet, analyzeImageForCharacterDescription, generateCharacterDescriptionFromKeyword, translateActionToEnglish, generateStickerPlan, parseStructuredStickerPlan, analyzeImageSubject } from './services/geminiService';
 import { loadApiKey, clearApiKey } from './services/storageUtils';
 import { generateFrameZip, wait, resizeImage, extractDominantColors, blobToDataUrl, getFontFamily, processGreenScreenImage, generateTabImage } from './services/utils';
 import { processGreenScreenAndSlice, waitForOpenCV } from './services/opencvService';
@@ -327,8 +327,9 @@ const ExternalPromptGenerator = ({ onApply, isProcessing, characterType }: { onA
 
 export const App = () => {
     // const [apiKeyReady, setApiKeyReady] = useState(false); // Removed
-    const [sysLang, setSysLang] = useState<LanguageCode>('zh'); // System UI Language
-    const t = translations[sysLang]; // I18n Helper
+    const { language: sysLang, setLanguage: setSysLang, t } = useLanguage();
+    // const [sysLang, setSysLang] = useState<LanguageCode>('zh'); // System UI Language
+    // const t = translations[sysLang]; // I18n Helper
 
     const [appStep, setAppStep] = useState<AppStep | number>(AppStep.UPLOAD);
     const [inputMode, setInputMode] = useState<InputMode | null>(null);
@@ -674,12 +675,62 @@ export const App = () => {
         }
 
         setIsProcessing(true);
-        setLoadingMsg("正在設計您的 IP 角色 (約需 15-20 秒)...");
+        setLoadingMsg(t('loadingProcessingChar'));
+
+        let activeComposition = charComposition;
+
         try {
+            // Auto-detect Logic
+            if (inputMode === 'PHOTO') {
+                setLoadingMsg(t('loadingAnalyzingImage'));
+                try {
+                    let detectedType = "";
+                    if (charCount === 1 && sourceImage) {
+                        const type = await analyzeImageSubject(sourceImage);
+                        if (type === 'Animal') detectedType = 'Animal (動物)';
+                        else if (type.includes('Person')) detectedType = 'Person (人物)';
+
+                        console.log(`[Auto-Detect] Single: ${type} -> ${detectedType}`);
+                    } else if (charCount === 2 && groupChars.length >= 2) {
+                        const [res1, res2] = await Promise.all([
+                            analyzeImageSubject(groupChars[0].image!),
+                            analyzeImageSubject(groupChars[1].image!)
+                        ]);
+
+                        const isMale = (s: string) => s.includes('Male') && !s.includes('Female');
+                        const isFemale = (s: string) => s.includes('Female');
+                        const isAnimal = (s: string) => s.includes('Animal');
+
+                        if (isAnimal(res1) || isAnimal(res2)) {
+                            detectedType = 'Animals (動物)';
+                        } else {
+                            const m1 = isMale(res1);
+                            const f1 = isFemale(res1);
+                            const m2 = isMale(res2);
+                            const f2 = isFemale(res2);
+
+                            if (m1 && m2) detectedType = 'Person (2 Male / 兩男)';
+                            else if (f1 && f2) detectedType = 'Person (2 Female / 兩女)';
+                            else detectedType = 'Person (Male + Female / 男女)';
+                        }
+                        console.log(`[Auto-Detect] Dual: ${res1}+${res2} -> ${detectedType}`);
+                    }
+
+                    if (detectedType) {
+                        activeComposition = detectedType;
+                        setCharComposition(detectedType);
+                    }
+                } catch (e) {
+                    console.error("Auto mapping failed", e);
+                }
+            }
+
+            setLoadingMsg(t('loadingDrawingChar'));
+
             let result;
 
             // Inject Composition Rule into Style Prompt (Invisible to user, but guides AI)
-            const compositionRule = `[Character Composition Requirement: ${charComposition}]`;
+            const compositionRule = `[Character Composition Requirement: ${activeComposition}]`;
             const finalStylePrompt = `${compositionRule} ${stylePrompt}`;
 
             if (inputMode === 'PHOTO' && charCount > 1) {
@@ -710,7 +761,7 @@ export const App = () => {
         }
         if (!generatedChar) return;
         setIsProcessing(true);
-        setLoadingMsg("正在繪製...");
+        setLoadingMsg(t('generating'));
 
         try {
             const generatedSheets: string[] = [];
@@ -727,7 +778,7 @@ export const App = () => {
             }
 
             for (let i = 0; i < batches.length; i++) {
-                setLoadingMsg(`正在繪製第 ${i + 1} / ${batches.length} 張底圖...`);
+                setLoadingMsg(`${t('drawingSheetPrefix')}${i + 1} / ${batches.length}${t('drawingSheetSuffix')}`);
                 const batchConfigs = batches[i];
 
                 const cleanConfigs = batchConfigs.map(c => ({
@@ -1009,15 +1060,15 @@ export const App = () => {
                     </button>
                     <button
                         onClick={() => {
-                            if (confirm(t.confirmChangeKey)) {
+                            if (confirm(t('confirmChangeKey'))) {
                                 // clearApiKey(); // No longer needed as we don't store it
                                 window.location.reload();
                             }
                         }}
                         className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg text-xs font-bold transition-all flex items-center gap-1"
-                        title={t.changeKey}
+                        title={t('changeKey')}
                     >
-                        <span>🔑</span> {t.changeKey}
+                        <span>🔑</span> {t('changeKey')}
                     </button>
                     <button onClick={() => setHelpOpen(true)} className="p-2 hover:bg-indigo-50 rounded-full text-indigo-600 transition-colors">
                         <HelpIcon />
@@ -1034,7 +1085,7 @@ export const App = () => {
                         <div className="bg-white p-1.5 rounded-full shadow-sm group-hover:shadow border border-slate-200 group-hover:border-indigo-200 transition-all">
                             <ArrowLeftIcon />
                         </div>
-                        <span>{t.backStep}</span>
+                        <span>{t('backStep')}</span>
                     </button>
                 )}
 
@@ -1044,8 +1095,8 @@ export const App = () => {
                         {!inputMode && (
                             <>
                                 <div className="text-center space-y-4">
-                                    <h2 className="text-4xl font-black text-slate-800">{t.mainTitle}</h2>
-                                    <p className="text-slate-500 text-lg">{t.mainSubtitle}</p>
+                                    <h2 className="text-4xl font-black text-slate-800">{t('mainTitle')}</h2>
+                                    <p className="text-slate-500 text-lg">{t('mainSubtitle')}</p>
                                 </div>
 
                                 {/* PRODUCT MODE SWITCHER */}
@@ -1055,42 +1106,42 @@ export const App = () => {
                                             onClick={() => setStickerType('STATIC')}
                                             className={`px-6 py-2 rounded-lg font-bold transition-all ${stickerType === 'STATIC' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
                                         >
-                                            {t.stickerMode}
+                                            {t('stickerMode')}
                                         </button>
                                         <button
                                             onClick={() => setStickerType('EMOJI')}
                                             className={`px-6 py-2 rounded-lg font-bold transition-all ${stickerType === 'EMOJI' ? 'bg-white text-pink-600 shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
                                         >
-                                            {t.emojiMode}
+                                            {t('emojiMode')}
                                         </button>
                                     </div>
                                 </div>
                                 {stickerType === 'EMOJI' && (
                                     <div className="text-center text-sm text-pink-500 font-bold mb-8 animate-fade-in">
-                                        {t.emojiNote}
+                                        {t('emojiNote')}
                                     </div>
                                 )}
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
                                     <div onClick={() => { setInputMode('PHOTO'); setCharCount(1); }} className="cursor-pointer p-8 rounded-3xl border-2 border-white bg-white hover:border-indigo-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
                                         <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">📸</div>
-                                        <h3 className="text-xl font-bold mb-2">{t.modePhoto}</h3>
-                                        <p className="text-sm text-slate-500">{t.modePhotoDesc}</p>
+                                        <h3 className="text-xl font-bold mb-2">{t('modePhoto')}</h3>
+                                        <p className="text-sm text-slate-500">{t('modePhotoDesc')}</p>
                                     </div>
                                     <div onClick={() => setInputMode('EXISTING_IP')} className="cursor-pointer p-8 rounded-3xl border-2 border-white bg-white hover:border-purple-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
                                         <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">🖼️</div>
-                                        <h3 className="text-xl font-bold mb-2">{t.modeExisting}</h3>
-                                        <p className="text-sm text-slate-500">{t.modeExistingDesc}</p>
+                                        <h3 className="text-xl font-bold mb-2">{t('modeExisting')}</h3>
+                                        <p className="text-sm text-slate-500">{t('modeExistingDesc')}</p>
                                     </div>
                                     <div onClick={() => setInputMode('TEXT_PROMPT')} className="cursor-pointer p-8 rounded-3xl border-2 border-white bg-white hover:border-pink-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
                                         <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">📝</div>
-                                        <h3 className="text-xl font-bold mb-2">{t.modeText}</h3>
-                                        <p className="text-sm text-slate-500">{t.modeTextDesc}</p>
+                                        <h3 className="text-xl font-bold mb-2">{t('modeText')}</h3>
+                                        <p className="text-sm text-slate-500">{t('modeTextDesc')}</p>
                                     </div>
                                     <div onClick={() => setInputMode('UPLOAD_SHEET')} className="cursor-pointer p-8 rounded-3xl border-2 border-white bg-white hover:border-amber-500 hover:shadow-xl hover:-translate-y-1 transition-all group">
                                         <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">📂</div>
-                                        <h3 className="text-xl font-bold mb-2">{t.modeUtility}</h3>
-                                        <p className="text-sm text-slate-500">{t.modeUtilityDesc}</p>
+                                        <h3 className="text-xl font-bold mb-2">{t('modeUtility')}</h3>
+                                        <p className="text-sm text-slate-500">{t('modeUtilityDesc')}</p>
                                     </div>
                                 </div>
                             </>
@@ -1106,7 +1157,7 @@ export const App = () => {
                                     <div className="bg-white p-1.5 rounded-full shadow-sm group-hover:shadow border border-slate-200 group-hover:border-indigo-200 transition-all">
                                         <ArrowLeftIcon />
                                     </div>
-                                    <span>返回模式選擇</span>
+                                    <span>{t('backStep')}</span>
                                 </button>
 
                                 <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 animate-fade-in-up">
@@ -1125,16 +1176,16 @@ export const App = () => {
                                             </div>
                                             <div>
                                                 <h3 className="text-2xl font-black text-slate-800">
-                                                    {inputMode === 'PHOTO' && '照片轉 IP'}
-                                                    {inputMode === 'EXISTING_IP' && '現有 IP'}
-                                                    {inputMode === 'TEXT_PROMPT' && '文字生成'}
-                                                    {inputMode === 'UPLOAD_SHEET' && '上傳底圖'}
+                                                    {inputMode === 'PHOTO' && t('modePhoto')}
+                                                    {inputMode === 'EXISTING_IP' && t('modeExisting')}
+                                                    {inputMode === 'TEXT_PROMPT' && t('modeText')}
+                                                    {inputMode === 'UPLOAD_SHEET' && t('modeUtility')}
                                                 </h3>
                                                 <p className="text-sm text-slate-500 font-medium">
-                                                    {inputMode === 'PHOTO' && '上傳照片，AI 將為您轉換風格'}
-                                                    {inputMode === 'EXISTING_IP' && '上傳角色圖，延伸製作表情'}
-                                                    {inputMode === 'TEXT_PROMPT' && '輸入描述，創造新角色'}
-                                                    {inputMode === 'UPLOAD_SHEET' && '上傳拼圖，進行切割'}
+                                                    {inputMode === 'PHOTO' && t('modePhotoDesc')}
+                                                    {inputMode === 'EXISTING_IP' && t('modeExistingDesc')}
+                                                    {inputMode === 'TEXT_PROMPT' && t('modeTextDesc')}
+                                                    {inputMode === 'UPLOAD_SHEET' && t('modeUtilityDesc')}
                                                 </p>
                                             </div>
                                         </div>
@@ -1145,28 +1196,28 @@ export const App = () => {
                                         <div className="mb-8 bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-4">
                                             <div className="flex items-center justify-between">
                                                 <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                                                    <span>👥</span> 設定角色數量
-                                                    <span className="text-xs font-normal text-slate-400 bg-white px-2 py-0.5 rounded border border-slate-200">單人 / 雙人</span>
+                                                    <span>👥</span> {t('charCount')}
+                                                    <span className="text-xs font-normal text-slate-400 bg-white px-2 py-0.5 rounded border border-slate-200">{t('charCountSingle')} / {t('charCountDual')}</span>
                                                 </label>
                                                 <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
                                                     <button
                                                         onClick={() => handleCharCountChange(1)}
                                                         className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${charCount === 1 ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-indigo-500'}`}
                                                     >
-                                                        單人 (Single)
+                                                        {t('charCountSingle')}
                                                     </button>
                                                     <button
                                                         onClick={() => handleCharCountChange(2)}
                                                         className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${charCount === 2 ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-indigo-500'}`}
                                                     >
-                                                        雙人 (Dual)
+                                                        {t('charCountDual')}
                                                     </button>
                                                 </div>
                                             </div>
 
                                             {/* Character Composition Selector */}
                                             <div className="bg-white p-3 rounded-xl border border-dashed border-indigo-200">
-                                                <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">角色類型分類 (Character Type)</label>
+                                                <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">{t('charType')}</label>
                                                 <div className="flex flex-wrap gap-2">
                                                     {charCount === 1 ? (
                                                         <>
@@ -1209,7 +1260,7 @@ export const App = () => {
                                                     <div className="relative w-full h-full p-4">
                                                         <img src={sourceImage} alt="Source" className="w-full h-full object-contain rounded-xl" />
                                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                            <span className="text-white font-bold bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm">更換圖片</span>
+                                                            <span className="text-white font-bold bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm">{t('changeImage')}</span>
                                                         </div>
                                                     </div>
                                                 ) : (
@@ -1217,8 +1268,8 @@ export const App = () => {
                                                         <div className="bg-indigo-50 p-4 rounded-full mb-4 group-hover:scale-110 transition-transform duration-300">
                                                             <UploadIcon />
                                                         </div>
-                                                        <p className="text-slate-600 font-bold text-lg">點擊上傳圖片</p>
-                                                        <p className="text-slate-400 text-sm mt-1">支援 JPG, PNG</p>
+                                                        <p className="text-slate-600 font-bold text-lg">{t('clickUpload')}</p>
+                                                        <p className="text-slate-400 text-sm mt-1">{t('uploadSupport')}</p>
                                                     </>
                                                 )}
                                                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
@@ -1243,13 +1294,13 @@ export const App = () => {
                                                                     <div className="relative w-full h-full group">
                                                                         <img src={char.image} alt={`Char ${index + 1}`} className="w-full h-full object-contain" />
                                                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                            <span className="text-xs text-white font-bold bg-black/50 px-3 py-1 rounded-full">更換</span>
+                                                                            <span className="text-xs text-white font-bold bg-black/50 px-3 py-1 rounded-full">{t('changeImage')}</span>
                                                                         </div>
                                                                     </div>
                                                                 ) : (
                                                                     <div className="text-center p-4">
                                                                         <span className="text-2xl block mb-2">👤</span>
-                                                                        <span className="text-xs text-slate-400 font-bold">上傳參考圖 (選填)</span>
+                                                                        <span className="text-xs text-slate-400 font-bold">{t('uploadRefImage')}</span>
                                                                     </div>
                                                                 )}
                                                                 <input
@@ -1281,7 +1332,7 @@ export const App = () => {
                                                                                 分析中...
                                                                             </>
                                                                         ) : (
-                                                                            <>✨ AI 自動辨識</>
+                                                                            <>{t('autoDetect')}</>
                                                                         )}
                                                                     </button>
                                                                 </div>
@@ -1291,7 +1342,7 @@ export const App = () => {
                                                                         const val = e.target.value;
                                                                         setGroupChars(prev => prev.map((c, i) => i === index ? { ...c, description: val } : c));
                                                                     }}
-                                                                    placeholder="例如: 金髮藍眼騎士，穿銀盔甲..."
+                                                                    placeholder={t('descPlaceholder')}
                                                                     className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-200 resize-none h-24"
                                                                 />
                                                             </div>
@@ -1306,65 +1357,68 @@ export const App = () => {
                                         <div className="mb-8 space-y-4">
                                             {/* Keyword Input Section */}
                                             <div>
-                                                <label className="block text-sm font-bold text-slate-700 mb-2">輸入想做的主題 (例如：貓咪、恐龍、珍珠奶茶)</label>
-                                                <div className="flex gap-2">
-                                                    <input
-                                                        type="text"
-                                                        value={subjectKeyword}
-                                                        onChange={(e) => setSubjectKeyword(e.target.value)}
-                                                        placeholder="輸入主題..."
-                                                        className="flex-1 p-4 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none font-medium"
-                                                    />
-                                                    <button
-                                                        onClick={handleGenerateDescriptionFromKeyword}
-                                                        disabled={isGeneratingDescription || !subjectKeyword.trim()}
-                                                        className="px-6 py-2 bg-pink-100 hover:bg-pink-200 text-pink-700 rounded-xl font-bold shadow-sm flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                                                    >
-                                                        {isGeneratingDescription ? (
-                                                            <div className="w-4 h-4 border-2 border-pink-400 border-t-transparent rounded-full animate-spin"></div>
-                                                        ) : (
-                                                            <>✨ AI 自動發想描述</>
-                                                        )}
-                                                    </button>
+                                                <div>
+                                                    <label className="block text-sm font-bold text-slate-700 mb-2">{t('enterKeyword')}</label>
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={subjectKeyword}
+                                                            onChange={(e) => setSubjectKeyword(e.target.value)}
+                                                            placeholder={t('enterKeywordPlaceholder')}
+                                                            className="flex-1 p-4 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none font-medium"
+                                                        />
+                                                        <button
+                                                            onClick={handleGenerateDescriptionFromKeyword}
+                                                            disabled={isGeneratingDescription || !subjectKeyword.trim()}
+                                                            className="px-6 py-2 bg-pink-100 hover:bg-pink-200 text-pink-700 rounded-xl font-bold shadow-sm flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                                                        >
+                                                            {isGeneratingDescription ? (
+                                                                <div className="w-4 h-4 border-2 border-pink-400 border-t-transparent rounded-full animate-spin"></div>
+                                                            ) : (
+                                                                <>{t('autoGenerateDesc')}</>
+                                                            )}
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                            </div>
 
-                                            <div className="relative">
-                                                <label className="block text-sm font-bold text-slate-700 mb-2">角色描述 (可手動修改)</label>
-                                                <textarea
-                                                    value={promptText}
-                                                    onChange={(e) => setPromptText(e.target.value)}
-                                                    className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none font-medium text-lg min-h-[200px]"
-                                                    placeholder="或直接在此輸入詳細描述：一隻戴著飛行員眼鏡的橘色肥貓，穿著皮夾克，表情自信..."
-                                                />
-                                                <div className="absolute bottom-4 right-4 relative">
-                                                    <button
-                                                        onClick={() => setShowDiceMenu(!showDiceMenu)}
-                                                        disabled={diceLoading}
-                                                        className={`p-2 rounded-full shadow-lg transition-all active:scale-95 flex items-center gap-2 px-3
+                                                <div className="relative">
+                                                    <label className="block text-sm font-bold text-slate-700 mb-2">{t('charDesc')}</label>
+                                                    <textarea
+                                                        value={promptText}
+                                                        onChange={(e) => setPromptText(e.target.value)}
+                                                        className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none font-medium text-lg min-h-[200px]"
+                                                        placeholder={t('charDescPlaceholder')}
+                                                    />
+                                                    <div className="absolute bottom-4 right-4 relative">
+                                                        <button
+                                                            onClick={() => setShowDiceMenu(!showDiceMenu)}
+                                                            disabled={diceLoading}
+                                                            className={`p-2 rounded-full shadow-lg transition-all active:scale-95 flex items-center gap-2 px-3
                                                 ${diceLoading ? 'bg-slate-100 text-slate-400' : 'bg-white hover:bg-pink-50 text-pink-600 hover:text-pink-700 border border-pink-100'}
                                             `}
-                                                        title="隨機產生靈感"
-                                                    >
-                                                        {diceLoading ? (
-                                                            <div className="w-5 h-5 border-2 border-pink-200 border-t-pink-600 rounded-full animate-spin"></div>
-                                                        ) : (
-                                                            <>
-                                                                <DiceIcon />
-                                                                <span className="text-xs font-bold">隨機靈感</span>
-                                                            </>
+                                                            title="隨機產生靈感"
+                                                        >
+                                                            {diceLoading ? (
+                                                                <div className="w-5 h-5 border-2 border-pink-200 border-t-pink-600 rounded-full animate-spin"></div>
+                                                            ) : (
+                                                                <>
+                                                                    <DiceIcon />
+                                                                    <span className="text-xs font-bold">{t('randomIdea')}</span>
+                                                                </>
+                                                            )}
+                                                        </button>
+                                                        {showDiceMenu && (
+                                                            <div className="absolute bottom-full right-0 mb-2 bg-white rounded-xl shadow-xl border border-pink-100 p-2 w-48 animate-fade-in z-20 flex flex-col gap-1">
+                                                                <div className="text-[10px] text-slate-400 font-bold px-2 py-1 uppercase">{t('selectRandomType')}</div>
+                                                                <button onClick={() => handleDiceRoll('ANIMAL')} className="w-full text-left px-3 py-2 hover:bg-pink-50 rounded-lg text-sm font-bold text-slate-700 hover:text-pink-600 transition-colors flex items-center gap-2">{t('randomAnimal')}</button>
+                                                                <button onClick={() => handleDiceRoll('PERSON')} className="w-full text-left px-3 py-2 hover:bg-pink-50 rounded-lg text-sm font-bold text-slate-700 hover:text-pink-600 transition-colors flex items-center gap-2">{t('randomPerson')}</button>
+                                                            </div>
                                                         )}
-                                                    </button>
-                                                    {showDiceMenu && (
-                                                        <div className="absolute bottom-full right-0 mb-2 bg-white rounded-xl shadow-xl border border-pink-100 p-2 w-48 animate-fade-in z-20 flex flex-col gap-1">
-                                                            <div className="text-[10px] text-slate-400 font-bold px-2 py-1 uppercase">選擇隨機類型</div>
-                                                            <button onClick={() => handleDiceRoll('ANIMAL')} className="w-full text-left px-3 py-2 hover:bg-pink-50 rounded-lg text-sm font-bold text-slate-700 hover:text-pink-600 transition-colors flex items-center gap-2">🐶 可愛動物</button>
-                                                            <button onClick={() => handleDiceRoll('PERSON')} className="w-full text-left px-3 py-2 hover:bg-pink-50 rounded-lg text-sm font-bold text-slate-700 hover:text-pink-600 transition-colors flex items-center gap-2">🧑 特色人物</button>
-                                                        </div>
-                                                    )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
+
                                     )}
 
                                     {inputMode === 'UPLOAD_SHEET' && (
@@ -1386,8 +1440,8 @@ export const App = () => {
 
                                                 <div onClick={() => sheetInputRef.current?.click()} className="border-3 border-dashed border-slate-300 bg-slate-50/50 rounded-3xl h-48 flex flex-col items-center justify-center cursor-pointer hover:bg-indigo-50 hover:border-indigo-400 hover:scale-[1.01] transition-all group overflow-hidden relative">
                                                     <div className="bg-white p-4 rounded-full mb-3 group-hover:scale-110 transition-transform duration-300 shadow-md"><FolderOpenIcon /></div>
-                                                    <p className="text-slate-700 font-bold text-lg">點擊上傳底圖 (Sheet)</p>
-                                                    <p className="text-slate-400 text-sm mt-1">支援 PNG, JPG (建議使用綠幕背景)</p>
+                                                    <p className="text-slate-700 font-bold text-lg">{t('clickUploadSheet')}</p>
+                                                    <p className="text-slate-400 text-sm mt-1">{t('uploadSheetSupport')}</p>
                                                     <input ref={sheetInputRef} type="file" accept="image/*" className="hidden" onChange={handleSheetUpload} />
                                                 </div>
                                             </div>
@@ -1463,7 +1517,7 @@ export const App = () => {
                                     {
                                         inputMode !== 'UPLOAD_SHEET' && inputMode !== 'EXISTING_IP' && (
                                             <div className="mb-8">
-                                                <label className="block text-sm font-bold text-slate-700 mb-2">畫風設定</label>
+                                                <label className="block text-sm font-bold text-slate-700 mb-2">{t('artStyleLabel')}</label>
                                                 <div className="flex flex-wrap gap-2 mb-3">
                                                     {ART_STYLES.map(style => (
                                                         <button key={style} onClick={() => setStylePrompt(style)} className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${stylePrompt === style ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-500'}`}>{style.split(/[\(\（]/)[0]}</button>
@@ -1480,7 +1534,7 @@ export const App = () => {
                                     {
                                         inputMode !== 'UPLOAD_SHEET' && (
                                             <button onClick={handleGenerateCharacter} disabled={isProcessing} className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-black text-lg shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                                                {isProcessing ? (<><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>AI 設計中...</>) : (<>開始設計角色 ✨</>)}
+                                                {isProcessing ? (<><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>{t('designing')}</>) : (<>{t('startDesign')} ✨</>)}
                                             </button>
                                         )
                                     }
@@ -1490,13 +1544,14 @@ export const App = () => {
                     </div>
                 )}
 
+
                 {
                     appStep === AppStep.CANDIDATE_SELECTION && generatedChar && (
                         <div className="animate-fade-in-up mt-2 max-w-4xl mx-auto pb-32">
                             {/* ... (Previous Candidate Selection Code) ... */}
                             <div className="text-center mb-8">
-                                <h2 className="text-3xl font-black text-slate-800">您的專屬 IP 角色誕生了！✨</h2>
-                                <p className="text-slate-500 mt-2">請確認角色設計，滿意後我們將以此為基礎製作整套貼圖。</p>
+                                <h2 className="text-3xl font-black text-slate-800">{t('charBornTitle')} ✨</h2>
+                                <p className="text-slate-500 mt-2">{t('charBornSubtitle')}</p>
                             </div>
 
                             <div className="bg-white rounded-3xl shadow-xl overflow-hidden border-2 border-slate-100 p-6 mb-8">
@@ -1504,7 +1559,7 @@ export const App = () => {
                                 <div className="w-full h-[50vh] flex items-center justify-center bg-gray-50 rounded-2xl relative group border border-slate-100 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMUlEQVQ4T2NkYGAQYcAP3uCTZhw1gGGYhAGBZIA/nYDCgBDAm9BGDWAAJyRCgLaBCAAgXwixzAS0pgAAAABJRU5ErkJggg==')]">
                                     <img src={generatedChar.url} alt="Character" className="h-full w-full object-contain shadow-lg" />
                                     <button onClick={handleGenerateCharacter} className="absolute top-4 right-4 bg-white/90 backdrop-blur text-slate-700 px-4 py-2 rounded-full font-bold shadow-md hover:bg-white hover:text-indigo-600 transition-all flex items-center gap-2">
-                                        <RefreshIcon /> 重試/生成
+                                        <RefreshIcon /> {t('retryGenerate')}
                                     </button>
                                 </div>
                             </div>
@@ -1512,8 +1567,8 @@ export const App = () => {
                             {/* Sticky Action Buttons */}
                             <div className="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-slate-200 p-4 z-50 flex justify-center gap-4 shadow-[0_-5px_10px_rgba(0,0,0,0.05)]">
                                 <div className="max-w-4xl w-full flex gap-4">
-                                    <button onClick={() => setAppStep(AppStep.UPLOAD)} className="flex-1 py-4 border-2 border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-all shadow-sm">← 返回修改設定</button>
-                                    <button onClick={() => setAppStep(AppStep.STICKER_CONFIG)} className="flex-[2] py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-black text-lg shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all flex items-center justify-center gap-2">確認，下一步：配置貼圖文案 →</button>
+                                    <button onClick={() => setAppStep(AppStep.UPLOAD)} className="flex-1 py-4 border-2 border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-all shadow-sm">← {t('backModifyConfig')}</button>
+                                    <button onClick={() => setAppStep(AppStep.STICKER_CONFIG)} className="flex-[2] py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-black text-lg shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all flex items-center justify-center gap-2">{t('confirmNext')} →</button>
                                 </div>
                             </div>
                         </div>
@@ -1525,14 +1580,14 @@ export const App = () => {
                         <div className="animate-fade-in-up mt-2 max-w-6xl mx-auto">
                             <div className="flex justify-between items-end mb-8">
                                 <div>
-                                    <h2 className="text-3xl font-black text-slate-800">配置您的貼圖內容 📝</h2>
-                                    <p className="text-slate-500 mt-2">設定張數，並輸入您想好的文案。</p>
+                                    <h2 className="text-3xl font-black text-slate-800">{t('configTitle')} 📝</h2>
+                                    <p className="text-slate-500 mt-2">{t('configSubtitle')}</p>
                                 </div>
                                 <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex gap-4 items-center">
                                     <div className="flex gap-2 items-center">
-                                        <span className="text-xs font-bold text-slate-400">數量:</span>
+                                        <span className="text-xs font-bold text-slate-400">{t('quantityLabel')}</span>
                                         <select value={stickerQuantity} onChange={(e) => handleQuantityChange(Number(e.target.value) as StickerQuantity)} className="bg-slate-50 border-none rounded-lg font-bold text-slate-700 focus:ring-2 focus:ring-indigo-200 py-2">
-                                            {validQuantities.map(n => <option key={n} value={n}>{n} 張</option>)}
+                                            {validQuantities.map(n => <option key={n} value={n}>{n} {t('unitSheet')}</option>)}
                                         </select>
                                     </div>
                                 </div>
@@ -1541,15 +1596,15 @@ export const App = () => {
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                                 <div className="lg:col-span-1 space-y-6">
                                     <div className="bg-gradient-to-br from-indigo-50 to-white p-6 rounded-3xl border border-indigo-100 shadow-sm sticky top-24">
-                                        <div className="flex items-center gap-2 mb-4"><span className="text-2xl">✍️</span><h3 className="font-bold text-slate-800">文案建立 (Copywriting)</h3></div>
-                                        <p className="text-xs text-slate-500 mb-4">直接貼上您的筆記 (例如: "1.早安 2.晚安 3.謝謝")，AI 會自動分析語意，並自動產生對應的英文動作指令 (Prompt)。</p>
+                                        <div className="flex items-center gap-2 mb-4"><span className="text-2xl">✍️</span><h3 className="font-bold text-slate-800">{t('copywritingTitle')}</h3></div>
+                                        <p className="text-xs text-slate-500 mb-4">{t('copywritingSubtitle')}</p>
 
                                         <div className="mb-4">
                                             <TextToggle enabled={includeText} onChange={setIncludeText} />
                                         </div>
 
-                                        <textarea value={smartInputText} onChange={(e) => setSmartInputText(e.target.value)} className="w-full h-40 p-4 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-400 outline-none resize-none bg-white mb-4" placeholder="在此貼上您的想法..." />
-                                        <button onClick={handleSmartInput} disabled={!smartInputText.trim() || isProcessing} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"><MagicWandIcon /> 分析並自動填入</button>
+                                        <textarea value={smartInputText} onChange={(e) => setSmartInputText(e.target.value)} className="w-full h-40 p-4 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-400 outline-none resize-none bg-white mb-4" placeholder={t('pasteIdeasPlaceholder')} />
+                                        <button onClick={handleSmartInput} disabled={!smartInputText.trim() || isProcessing} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"><MagicWandIcon /> {t('analyzeAndFill')}</button>
                                         <ExternalPromptGenerator onApply={setSmartInputText} isProcessing={isProcessing} characterType={charComposition} />
                                     </div>
                                 </div>
@@ -1560,14 +1615,14 @@ export const App = () => {
                                             <div className="w-8 h-8 flex-shrink-0 bg-slate-100 rounded-full flex items-center justify-center font-black text-slate-400 text-xs">{idx + 1}</div>
                                             <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <div>
-                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">文字 (Text)</label>
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{t('textLabel')}</label>
                                                     <div className="flex gap-2">
-                                                        <input type="text" value={config.text} onChange={(e) => { const newConfigs = [...stickerConfigs]; newConfigs[idx].text = e.target.value; setStickerConfigs(newConfigs); }} className="flex-1 p-2 bg-slate-50 rounded-lg border-none text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-200" placeholder="無文字" disabled={!includeText} />
+                                                        <input type="text" value={config.text} onChange={(e) => { const newConfigs = [...stickerConfigs]; newConfigs[idx].text = e.target.value; setStickerConfigs(newConfigs); }} className="flex-1 p-2 bg-slate-50 rounded-lg border-none text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-200" placeholder={t('noText')} disabled={!includeText} />
                                                         <button onClick={() => { const newConfigs = [...stickerConfigs]; newConfigs[idx].showText = !newConfigs[idx].showText; setStickerConfigs(newConfigs); }} className={`px-3 rounded-lg text-xs font-bold transition-colors ${config.showText ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400'}`} disabled={!includeText}>{config.showText ? 'ON' : 'OFF'}</button>
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">動作指令 (Action Prompt)</label>
+                                                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{t('promptLabel')}</label>
                                                     <div className="flex flex-col gap-2">
                                                         {/* Chinese Action Description & Translation */}
                                                         <div className="flex gap-2">
@@ -1576,18 +1631,18 @@ export const App = () => {
                                                                 value={config.emotionPromptCN || ""}
                                                                 onChange={(e) => { const newConfigs = [...stickerConfigs]; newConfigs[idx].emotionPromptCN = e.target.value; setStickerConfigs(newConfigs); }}
                                                                 className="flex-1 p-2 bg-slate-50 rounded-lg border-none text-sm text-slate-600 focus:ring-2 focus:ring-indigo-200"
-                                                                placeholder="中文動作描述 (例如: 跌倒)"
+                                                                placeholder={t('promptCNPlaceholder')}
                                                             />
                                                             <button
                                                                 onClick={() => handleTranslatePrompt(config.id, config.emotionPromptCN || "")}
                                                                 disabled={optimizingId === config.id || !config.emotionPromptCN}
                                                                 className="px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition-colors flex items-center justify-center font-bold text-xs border border-indigo-200"
-                                                                title="自動翻譯成英文 Prompt"
+                                                                title={t('translateToEn')}
                                                             >
                                                                 {optimizingId === config.id ? (
                                                                     <div className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
                                                                 ) : (
-                                                                    <span>→ 翻譯</span>
+                                                                    <span>→ {t('translate')}</span>
                                                                 )}
                                                             </button>
                                                         </div>
@@ -1605,7 +1660,7 @@ export const App = () => {
                                                                 onClick={() => handleOptimizePrompt(config.id, config.text)}
                                                                 disabled={optimizingId === config.id || !config.text}
                                                                 className="px-3 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-lg transition-colors flex items-center justify-center"
-                                                                title="AI 根據文字自動產生畫面"
+                                                                title={t('autoGenVisDesc')}
                                                             >
                                                                 {optimizingId === config.id ? (
                                                                     <div className="w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
@@ -1620,7 +1675,7 @@ export const App = () => {
                                         </div>
                                     ))}
                                     <div className="fixed bottom-0 left-0 w-full bg-white/80 backdrop-blur-md border-t border-slate-200 p-4 z-40 flex justify-center shadow-[0_-5px_10px_rgba(0,0,0,0.05)]">
-                                        <button onClick={handleGenerateStickers} className="max-w-md w-full py-4 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-full font-black text-xl shadow-xl hover:scale-105 transition-transform flex items-center justify-center gap-2">✨ 開始生成貼圖 (Generate)</button>
+                                        <button onClick={handleGenerateStickers} className="max-w-md w-full py-4 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-full font-black text-xl shadow-xl hover:scale-105 transition-transform flex items-center justify-center gap-2">✨ {t('startGenerateStickers')}</button>
                                     </div>
                                 </div>
                             </div>
@@ -1633,7 +1688,7 @@ export const App = () => {
                         <div className="animate-fade-in-up mt-2 h-[calc(100vh-140px)] flex flex-col">
                             {/* ... (Sheet Editor code remains same) ... */}
                             <div className="flex justify-between items-center mb-4 px-2">
-                                <h2 className="text-2xl font-black text-slate-800">底圖檢查與修復 🛠️</h2>
+                                <h2 className="text-2xl font-black text-slate-800">{t('sheetCheckTitle')} 🛠️</h2>
                                 <div className="flex gap-4">
                                     <button onClick={handleOpenSheetMagicEditor} className="px-4 py-2 bg-purple-100 text-purple-700 rounded-xl font-bold hover:bg-purple-200 transition-colors flex items-center gap-2"><MagicWandIcon /> 魔法修復 (Magic Edit)</button>
                                     <button
@@ -1643,7 +1698,7 @@ export const App = () => {
                                 ${isOpenCVReady ? 'bg-emerald-500 text-white hover:bg-emerald-600 hover:-translate-y-0.5' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
                                     >
                                         <span className="text-xl">🟢</span>
-                                        {isOpenCVReady ? '綠幕自動切割 (OpenCV)' : '載入切割模組中...'}
+                                        {isOpenCVReady ? t('greenScreenAutoSlice') : t('loadingModule')}
                                     </button>
                                 </div>
                             </div>
@@ -1667,8 +1722,8 @@ export const App = () => {
                             {/* ... (Sticker Processing code remains same) ... */}
                             <div className="flex flex-col md:flex-row justify-between items-end md:items-center mb-6 gap-4">
                                 <div>
-                                    <h2 className="text-3xl font-black text-slate-800">您的專屬貼圖完成啦！🎉</h2>
-                                    <p className="text-slate-500 mt-1">點擊下載全部，或對單張貼圖進行微調。</p>
+                                    <h2 className="text-3xl font-black text-slate-800">{t('stickerDoneTitle')} 🎉</h2>
+                                    <p className="text-slate-500 mt-1">{t('stickerDoneSubtitle')}</p>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <div className="relative">
@@ -1690,10 +1745,10 @@ export const App = () => {
                                             }}
                                             className="px-4 py-3 bg-white border-2 border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap"
                                         >
-                                            生成 Tab 縮圖 (96x74)
+                                            {t('generateTabThumb')}
                                         </button>
                                     )}
-                                    <button onClick={() => generateFrameZip(finalStickers, zipFileName || "MyStickers", finalStickers.find(s => s.id === mainStickerId)?.url, stickerPackageInfo || undefined, stickerType)} className="px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold shadow-lg flex items-center gap-2 transition-transform hover:-translate-y-1 whitespace-nowrap"><DownloadIcon /> 下載全部</button>
+                                    <button onClick={() => generateFrameZip(finalStickers, zipFileName || "MyStickers", finalStickers.find(s => s.id === mainStickerId)?.url, stickerPackageInfo || undefined, stickerType)} className="px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold shadow-lg flex items-center gap-2 transition-transform hover:-translate-y-1 whitespace-nowrap"><DownloadIcon /> {t('downloadAll')}</button>
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12">
@@ -1705,36 +1760,37 @@ export const App = () => {
                                 <div className="bg-white rounded-2xl border-2 border-indigo-100 p-8 shadow-sm relative overflow-hidden group">
                                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><div className="text-9xl">📦</div></div>
                                     <div className="relative z-10">
-                                        <h3 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-2"><span className="bg-indigo-100 text-indigo-600 p-2 rounded-lg text-xl">💡</span>貼圖上架資訊助手<span className="text-xs font-normal text-slate-400 bg-slate-100 px-2 py-1 rounded ml-2">AI 自動生成</span></h3>
+                                        <h3 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-2"><span className="bg-indigo-100 text-indigo-600 p-2 rounded-lg text-xl">💡</span>{t('marketInfoTitle')}<span className="text-xs font-normal text-slate-400 bg-slate-100 px-2 py-1 rounded ml-2">{t('autoGenerated')}</span></h3>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                             <div className="space-y-4">
-                                                <div className="flex items-center gap-2 mb-2"><span className="w-2 h-2 rounded-full bg-indigo-500"></span><span className="text-sm font-bold text-slate-500 uppercase tracking-widest">中文資訊 (Traditional Chinese)</span></div>
-                                                <div><label className="block text-xs font-bold text-slate-400 mb-1">貼圖標題 (Title)</label><div className="flex gap-2"><input readOnly value={stickerPackageInfo.title.zh} className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-200" /><CopyBtn text={stickerPackageInfo.title.zh} /></div></div>
-                                                <div><label className="block text-xs font-bold text-slate-400 mb-1">貼圖說明 (Description)</label><div className="relative"><textarea readOnly value={stickerPackageInfo.description.zh} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-200 h-24 resize-none" /><div className="absolute bottom-3 right-3"><CopyBtn text={stickerPackageInfo.description.zh} /></div></div></div>
+                                                <div className="flex items-center gap-2 mb-2"><span className="w-2 h-2 rounded-full bg-indigo-500"></span><span className="text-sm font-bold text-slate-500 uppercase tracking-widest">{t('infoZH')}</span></div>
+                                                <div><label className="block text-xs font-bold text-slate-400 mb-1">{t('stickerTitle')}</label><div className="flex gap-2"><input readOnly value={stickerPackageInfo.title.zh} className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-200" /><CopyBtn text={stickerPackageInfo.title.zh} /></div></div>
+                                                <div><label className="block text-xs font-bold text-slate-400 mb-1">{t('stickerDesc')}</label><div className="relative"><textarea readOnly value={stickerPackageInfo.description.zh} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-200 h-24 resize-none" /><div className="absolute bottom-3 right-3"><CopyBtn text={stickerPackageInfo.description.zh} /></div></div></div>
                                             </div>
                                             <div className="space-y-4 flex flex-col">
-                                                <div className="flex items-center gap-2 mb-2"><span className="w-2 h-2 rounded-full bg-purple-500"></span><span className="text-sm font-bold text-slate-500 uppercase tracking-widest">英文資訊 (English)</span></div>
+                                                <div className="flex items-center gap-2 mb-2"><span className="w-2 h-2 rounded-full bg-purple-500"></span><span className="text-sm font-bold text-slate-500 uppercase tracking-widest">{t('infoEN')}</span></div>
                                                 <div><label className="block text-xs font-bold text-slate-400 mb-1">Title</label><div className="flex gap-2"><input readOnly value={stickerPackageInfo.title.en} className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-purple-200" /><CopyBtn text={stickerPackageInfo.title.en} label="Copy" successLabel="Copied" /></div></div>
                                                 <div><label className="block text-xs font-bold text-slate-400 mb-1">Description</label><div className="relative"><textarea readOnly value={stickerPackageInfo.description.en} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 outline-none focus:ring-2 focus:ring-purple-200 h-24 resize-none" /><div className="absolute bottom-3 right-3"><CopyBtn text={stickerPackageInfo.description.en} label="Copy" successLabel="Copied" /></div></div></div>
-                                                <div className="flex-1 flex items-end justify-end mt-4"><a href="https://creator.line.me/zh-hant/" target="_blank" rel="noreferrer" className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 font-bold bg-indigo-50 hover:bg-indigo-100 px-6 py-3 rounded-xl transition-colors shadow-sm hover:shadow-md"><span>🚀</span> 前往 LINE Creators Market 上架<ExternalLinkIcon /></a></div>
+                                                <div className="flex-1 flex items-end justify-end mt-4"><a href="https://creator.line.me/zh-hant/" target="_blank" rel="noreferrer" className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 font-bold bg-indigo-50 hover:bg-indigo-100 px-6 py-3 rounded-xl transition-colors shadow-sm hover:shadow-md"><span>🚀</span> {t('goToMarket')}<ExternalLinkIcon /></a></div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             )}
                             <div className="mt-12 mb-20 text-center">
-                                <p className="text-slate-500 font-bold mb-4 text-sm tracking-widest uppercase">玩上癮了嗎? 那就...</p>
+                                <p className="text-slate-500 font-bold mb-4 text-sm tracking-widest uppercase">{t('addicted')}</p>
                                 <button
                                     onClick={() => window.location.reload()}
                                     className="px-8 py-4 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white rounded-2xl font-black text-xl shadow-xl hover:shadow-2xl transform transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 mx-auto"
                                 >
-                                    <span className="text-2xl">🎲</span> 再試一次 (Try Again)
+                                    <span className="text-2xl">🎲</span> {t('tryAgain')}
                                 </button>
                             </div>
                         </div>
                     )}
             </main >
-            {isProcessing && <Loader message={loadingMsg} />}
+            {isProcessing && <Loader message={loadingMsg} />
+            }
             <MagicEditor isOpen={magicEditorOpen} imageUrl={editorImage} onClose={() => setMagicEditorOpen(false)} onGenerate={handleMagicGenerate} isProcessing={isProcessing} isAnimated={false} />
             <HelpModal isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
         </div >

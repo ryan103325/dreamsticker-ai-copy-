@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { translations, LanguageCode } from '../i18n';
-import { saveApiKey, loadApiKey } from '../services/storageUtils';
+import { useLanguage } from '../LanguageContext';
+import { loadApiKey } from '../services/storageUtils';
 import { MagicWandIcon } from './Icons';
 
 interface LandingPageProps {
     onStart: (key: string) => void;
-    lang: LanguageCode;
-    setLang: (lang: LanguageCode) => void;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onStart, lang, setLang }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
+    const { language, setLanguage, t } = useLanguage();
     const [key, setKey] = useState("");
-    const t = translations[lang];
 
     useEffect(() => {
         const stored = loadApiKey();
@@ -23,12 +21,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, lang, setLang
         if (key.trim().length > 10) {
             onStart(key.trim());
         } else {
-            alert(t.invalidKey);
+            alert(t('invalidKey'));
         }
     };
 
     const toggleLang = () => {
-        setLang(lang === 'zh' ? 'en' : 'zh');
+        setLanguage(language === 'zh' ? 'en' : 'zh');
     };
 
     return (
@@ -38,7 +36,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, lang, setLang
                 onClick={toggleLang}
                 className="absolute top-6 right-6 z-50 bg-white/10 backdrop-blur border border-white/20 px-4 py-2 rounded-full font-bold hover:bg-white/20 transition-all text-sm flex items-center gap-2"
             >
-                <span>🌐</span> {lang === 'zh' ? 'English' : '繁體中文'}
+                <span>🌐</span> {language === 'zh' ? 'English' : '繁體中文'}
             </button>
 
             {/* Background Decorations */}
@@ -52,18 +50,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, lang, setLang
                         <img src="./logo.png" alt="DreamSticker AI" className="w-full h-full object-cover" />
                     </div>
                     <h1 className="text-4xl font-black mb-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200">DreamSticker AI</h1>
-                    <p className="text-indigo-200">{t.landingTitle}</p>
+                    <p className="text-indigo-200">{t('landingTitle')}</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
-                        <label className="block text-sm font-medium text-indigo-200 mb-2">{t.apiKeyLabel}</label>
+                        <label className="block text-sm font-medium text-indigo-200 mb-2">{t('apiKeyLabel')}</label>
                         <input
                             type="password"
                             required
                             value={key}
                             onChange={(e) => setKey(e.target.value)}
-                            placeholder={t.apiKeyPlaceholder}
+                            placeholder={t('apiKeyPlaceholder')}
                             className="w-full px-4 py-3 rounded-xl bg-black/30 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all"
                         />
                     </div>
@@ -72,19 +70,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, lang, setLang
                         type="submit"
                         className="w-full py-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-bold rounded-xl shadow-lg transform transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2"
                     >
-                        <span>{t.startBtn}</span>
+                        <span>{t('startBtn')}</span>
                         <MagicWandIcon />
                     </button>
                 </form>
 
                 <div className="mt-6 text-center text-xs text-indigo-300">
-                    <p>{t.noKey}</p>
+                    <p>{t('noKey')}</p>
                     <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-white underline hover:text-indigo-200 mt-1 inline-block">
-                        {t.getKey}
+                        {t('getKey')}
                     </a>
                 </div>
                 <div className="mt-4 text-center text-[10px] text-white/40">
-                    <p>{t.localSave}</p>
+                    <p>{t('localSave')}</p>
                 </div>
             </div>
         </div>
