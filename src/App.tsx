@@ -23,7 +23,7 @@ import {
     CharacterInput
 } from './types';
 import { translations, LanguageCode } from './i18n';
-import { generateIPCharacter, generateStickerSheet, editSticker, parseStickerIdeas, generateStickerPackageInfo, generateRandomCharacterPrompt, generateVisualDescription, generateGroupCharacterSheet, analyzeImageForCharacterDescription, generateCharacterDescriptionFromKeyword, translateActionToEnglish } from './services/geminiService';
+import { generateIPCharacter, generateStickerSheet, editSticker, parseStickerIdeas, generateStickerPackageInfo, generateRandomCharacterPrompt, generateVisualDescription, generateGroupCharacterSheet, analyzeImageForCharacterDescription, generateCharacterDescriptionFromKeyword, translateActionToEnglish, generateStickerPlan, parseStructuredStickerPlan } from './services/geminiService';
 import { loadApiKey, clearApiKey } from './services/storageUtils';
 import { generateFrameZip, wait, resizeImage, extractDominantColors, blobToDataUrl, getFontFamily, processGreenScreenImage, generateTabImage } from './services/utils';
 import { processGreenScreenAndSlice, waitForOpenCV } from './services/opencvService';
@@ -173,6 +173,144 @@ const StickerCard: React.FC<StickerCardProps> = ({
                     </div>
                 )}
             </div>
+        </div>
+    );
+};
+
+// Custom Text Toggle Component
+const TextToggle = ({ enabled, onChange }: { enabled: boolean, onChange: (val: boolean) => void }) => (
+    <div className="flex items-center gap-3 p-2 bg-indigo-50/50 rounded-xl border border-indigo-100/50">
+        <span className="text-sm font-bold text-slate-600">文字 (Text)</span>
+        <div
+            className={`relative w-16 h-8 rounded-full cursor-pointer transition-colors duration-300 shadow-inner ${enabled ? 'bg-green-500' : 'bg-slate-300'}`}
+            onClick={() => onChange(!enabled)}
+        >
+            {/* Knob */}
+            <div className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transition-all duration-300 flex items-center justify-center text-[10px] font-bold text-slate-600
+                ${enabled ? 'left-1' : 'left-9'}`}
+            >
+            </div>
+            {/* Label inside track */}
+            <span className={`absolute top-1/2 -translate-y-1/2 text-[10px] font-black text-white transition-opacity duration-300
+                ${enabled ? 'right-2 opacity-100' : 'right-2 opacity-0'}`}>
+                ON
+            </span>
+            <span className={`absolute top-1/2 -translate-y-1/2 text-[10px] font-black text-white transition-opacity duration-300
+                ${enabled ? 'left-2 opacity-0' : 'left-2 opacity-100'}`}>
+                OFF
+            </span>
+        </div>
+    </div>
+);
+
+// External Prompt Generator Component
+const ExternalPromptGenerator = ({ onApply, isProcessing }: { onApply: (text: string) => void, isProcessing: boolean }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [qty, setQty] = useState(8);
+    const [category, setCategory] = useState("職場生存");
+    const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+
+    const categories = ["職場生存", "投資韭菜", "親密關係", "吃貨日常", "迷因嘴砲", "厭世躺平"];
+
+    const handleAIGenerate = async () => {
+        setIsGeneratingPlan(true);
+        try {
+            const plan = await generateStickerPlan(qty, category);
+            if (plan) {
+                onApply(plan);
+                alert("文案已生成並填入！請點擊上方「分析並自動填入」來套用設定。");
+            }
+        } catch (e) {
+            alert("生成失敗，請稍後再試。");
+            console.error(e);
+        } finally {
+            setIsGeneratingPlan(false);
+        }
+    };
+
+    const generatePrompt = () => {
+        return `# Role: 專業 LINE 貼圖創意總監與 Prompt 工程師
+
+# Context
+使用者希望產出一組 LINE 貼圖的創意企劃，包含「貼圖文字」、「中文畫面指令」與「英文畫面指令」。你需要根據指定的「數量」與「主題風格」進行發想。
+
+# Input Data
+請使用者填入以下參數：
+1. **生成數量**：${qty}
+2. **文案種類**：${category}
+
+# Constraints & Rules
+1. **格式嚴格限制**：必須嚴格遵守下方 Output Format 的結構，不得更改標點符號或換行方式。
+2. **禁止 Emoji**：輸出內容中嚴禁出現任何表情符號（Emoji）。
+3. **視覺一致性**：英文指令（Prompt）必須是針對 AI 繪圖工具（如 Midjourney）可理解的視覺描述，而非僅僅是文意翻譯，必須精確描述表情、肢體動作與氛圍。
+4. **文字簡潔**：貼圖上的文字（Text）必須短促有力，適合手機畫面閱讀。
+
+# Output Format
+請依序條列，格式如下：
+1. 貼圖文字(中文畫面指令與表情描述)(English visual prompt describing the pose and expression matching the Chinese instruction)
+2. 貼圖文字(中文畫面指令與表情描述)(English visual prompt describing the pose and expression matching the Chinese instruction)
+...（依此類推直到達到指定數量）
+
+# Execution
+請根據 Input Data 中的參數，開始執行任務，並以文字框呈現。`;
+    };
+
+    return (
+        <div className="border-t border-indigo-100 pt-4 mt-4">
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full flex items-center justify-between text-xs font-bold text-indigo-500 hover:text-indigo-700 transition-colors"
+            >
+                <span>✨ 進階：AI 文案生成助手 (AI Copywriter)</span>
+                <span>{isOpen ? '▲' : '▼'}</span>
+            </button>
+
+            {isOpen && (
+                <div className="mt-3 space-y-3 bg-indigo-50/50 p-3 rounded-xl border border-indigo-100">
+                    <div className="flex gap-2 text-xs items-center">
+                        <label className="font-bold text-slate-500">數量:</label>
+                        <select value={qty} onChange={(e) => setQty(Number(e.target.value))} className="p-1 rounded border-slate-200 text-slate-700 font-bold">
+                            {[8, 16, 24, 32, 40].map(n => <option key={n} value={n}>{n}</option>)}
+                        </select>
+                        <label className="font-bold text-slate-500 ml-2">種類:</label>
+                        <select value={category} onChange={(e) => setCategory(e.target.value)} className="p-1 rounded border-slate-200 text-slate-700 font-bold flex-1">
+                            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                            <option value="綜合">綜合 (Mixed)</option>
+                        </select>
+                    </div>
+
+                    <div className="flex gap-2">
+                        {/* Mixed Button */}
+                        <button
+                            onClick={() => setCategory("綜合")}
+                            className="flex-1 py-2 text-[10px] bg-white border border-indigo-200 text-indigo-600 font-bold rounded hover:bg-indigo-50"
+                        >
+                            🎲 Set Mixed
+                        </button>
+
+                        {/* AI Generate Button */}
+                        <button
+                            onClick={handleAIGenerate}
+                            disabled={isProcessing || isGeneratingPlan}
+                            className="flex-[2] py-2 text-xs bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold rounded shadow-md hover:shadow-lg disabled:opacity-50"
+                        >
+                            {isGeneratingPlan ? '生成中...' : '✨ 由 AI 生成 (Use Gemini 2.5 Flash)'}
+                        </button>
+                    </div>
+
+                    <div className="relative">
+                        <textarea
+                            readOnly
+                            value={generatePrompt()}
+                            className="w-full h-24 p-2 text-[10px] bg-white border border-slate-200 rounded-lg resize-none text-slate-500 font-mono focus:outline-none"
+                        />
+                        <div className="absolute bottom-2 right-2">
+                            <CopyBtn text={generatePrompt()} label="複製 Prompt" />
+                        </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 text-center">生成結果會自動填入上方文字框，請務必點擊「分析並自動填入」按鈕。</p>
+                </div>
+            )}
         </div>
     );
 };
@@ -410,12 +548,14 @@ export const App = () => {
 
     const validQuantities: StickerQuantity[] = [8, 16, 24, 32, 40];
 
-    const handleSmartInput = async () => {
+    const handleSmartInput = () => {
         if (!smartInputText.trim()) return;
         setIsProcessing(true);
-        setLoadingMsg("正在分析您的筆記並轉換為貼圖靈感...");
+        setLoadingMsg("正在解析貼圖設定...");
+
         try {
-            const ideas = await parseStickerIdeas(smartInputText, includeText ? stickerQuantity : stickerQuantity); // Fixed includeText logic
+            // Local Parsing for structured plan
+            const ideas = parseStructuredStickerPlan(smartInputText);
 
             if (ideas.length > 0) {
                 const validQ = [8, 16, 24, 32, 40];
@@ -429,18 +569,18 @@ export const App = () => {
                     if (index < newConfigs.length) {
                         newConfigs[index].text = idea.text;
                         newConfigs[index].emotionPrompt = idea.emotionPrompt;
-                        newConfigs[index].emotionPromptCN = idea.emotionPromptCN; // Map Chinese prompt
+                        newConfigs[index].emotionPromptCN = idea.emotionPromptCN;
                         newConfigs[index].showText = includeText && !!idea.text;
                     }
                 });
                 setStickerConfigs(newConfigs);
-                alert(`已偵測到 ${ideas.length} 個貼圖靈感，自動切換為 ${newQty} 張模式並填入內容！`);
+                alert(`已成功解析 ${ideas.length} 個貼圖設定並填入！`);
             } else {
-                alert("AI 無法識別內容，請試著用條列式輸入 (例如: 1.早安 2.謝謝)");
+                alert("無法解析內容。請確認格式是否為：1. 文字(中文指令)(English Prompt)");
             }
         } catch (e) {
             console.error(e);
-            alert("分析失敗，請重試");
+            alert("解析失敗");
         } finally {
             setIsProcessing(false);
         }
@@ -828,7 +968,7 @@ export const App = () => {
     return (
         <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-20">
             <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b border-slate-200 px-6 py-4 flex justify-between items-center shadow-sm">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => window.location.reload()}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
                         <img src="./logo.png" className="w-full h-full object-cover" alt="Logo" />
                     </div>
@@ -1346,24 +1486,16 @@ export const App = () => {
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                                 <div className="lg:col-span-1 space-y-6">
                                     <div className="bg-gradient-to-br from-indigo-50 to-white p-6 rounded-3xl border border-indigo-100 shadow-sm sticky top-24">
-                                        <div className="flex items-center gap-2 mb-4"><span className="text-2xl">🧠</span><h3 className="font-bold text-slate-800">批量智慧輸入 (Smart Batch)</h3></div>
+                                        <div className="flex items-center gap-2 mb-4"><span className="text-2xl">✍️</span><h3 className="font-bold text-slate-800">文案建立 (Copywriting)</h3></div>
                                         <p className="text-xs text-slate-500 mb-4">直接貼上您的筆記 (例如: "1.早安 2.晚安 3.謝謝")，AI 會自動分析語意，並自動產生對應的英文動作指令 (Prompt)。</p>
 
-                                        <div className="mb-4 flex items-center gap-2 p-2 bg-indigo-100/50 rounded-lg">
-                                            <input
-                                                type="checkbox"
-                                                id="noTextMode"
-                                                checked={!includeText}
-                                                onChange={(e) => setIncludeText(!e.target.checked)}
-                                                className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300"
-                                            />
-                                            <label htmlFor="noTextMode" className="text-xs font-bold text-indigo-800 cursor-pointer select-none flex-1">
-                                                不生成文字 (No Text Mode)
-                                            </label>
+                                        <div className="mb-4">
+                                            <TextToggle enabled={includeText} onChange={setIncludeText} />
                                         </div>
 
                                         <textarea value={smartInputText} onChange={(e) => setSmartInputText(e.target.value)} className="w-full h-40 p-4 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-400 outline-none resize-none bg-white mb-4" placeholder="在此貼上您的想法..." />
                                         <button onClick={handleSmartInput} disabled={!smartInputText.trim() || isProcessing} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"><MagicWandIcon /> 分析並自動填入</button>
+                                        <ExternalPromptGenerator onApply={setSmartInputText} isProcessing={isProcessing} />
                                     </div>
                                 </div>
 
@@ -1535,9 +1667,18 @@ export const App = () => {
                                     </div>
                                 </div>
                             )}
+                            <div className="mt-12 mb-20 text-center">
+                                <p className="text-slate-500 font-bold mb-4 text-sm tracking-widest uppercase">玩上癮了嗎? 那就...</p>
+                                <button
+                                    onClick={() => window.location.reload()}
+                                    className="px-8 py-4 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white rounded-2xl font-black text-xl shadow-xl hover:shadow-2xl transform transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 mx-auto"
+                                >
+                                    <span className="text-2xl">🎲</span> 再試一次 (Try Again)
+                                </button>
+                            </div>
                         </div>
                     )}
-            </main>
+            </main >
             {isProcessing && <Loader message={loadingMsg} />}
             <MagicEditor isOpen={magicEditorOpen} imageUrl={editorImage} onClose={() => setMagicEditorOpen(false)} onGenerate={handleMagicGenerate} isProcessing={isProcessing} isAnimated={false} />
             <HelpModal isOpen={helpOpen} onClose={() => setHelpOpen(false)} />

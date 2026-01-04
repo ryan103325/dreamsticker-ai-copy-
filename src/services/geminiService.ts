@@ -7,7 +7,7 @@ import { stripMimeType, getMimeType, wait } from "./utils";
 const IP_DESIGN_MODEL = 'gemini-3-pro-image-preview';
 const STICKER_GEN_MODEL_PRO = 'gemini-3-pro-image-preview';
 const STICKER_GEN_MODEL_FLASH = 'gemini-2.5-flash-image';
-const TEXT_MODEL = 'gemini-3-flash-preview';
+const TEXT_MODEL = 'gemini-1.5-flash';
 const VALIDATION_MODEL = 'gemini-2.5-flash-image'; // Used for QA check
 
 import { saveApiKey, loadApiKey } from "./storageUtils";
@@ -716,4 +716,71 @@ export const restyleSticker = async (imageUrl: string, filter: ArtisticFilterTyp
     const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
     if (!part?.inlineData?.data) throw new Error("Restyle failed.");
     return { id: `restyle-${Date.now()}`, url: `data:image/png;base64,${part.inlineData.data}`, type: 'STATIC', status: 'SUCCESS', emotion: filter };
+};
+
+/**
+ * Generates a structured Sticker Plan using the specific Prompt Engineering template provided by the user.
+ * Uses the same TEXT_MODEL (gemini-1.5-flash) for speed.
+ */
+export const generateStickerPlan = async (qty: number, category: string): Promise<string> => {
+    const ai = getAI();
+    const prompt = `# Role: 專業 LINE 貼圖創意總監與 Prompt 工程師
+
+# Context
+使用者希望產出一組 LINE 貼圖的創意企劃，包含「貼圖文字」、「中文畫面指令」與「英文畫面指令」。你需要根據指定的「數量」與「主題風格」進行發想。
+
+# Input Data
+請使用者填入以下參數：
+1. **生成數量**：${qty}
+2. **文案種類**：${category}
+
+# Constraints & Rules
+1. **格式嚴格限制**：必須嚴格遵守下方 Output Format 的結構，不得更改標點符號或換行方式。
+2. **禁止 Emoji**：輸出內容中嚴禁出現任何表情符號（Emoji）。
+3. **視覺一致性**：英文指令（Prompt）必須是針對 AI 繪圖工具（如 Midjourney）可理解的視覺描述，而非僅僅是文意翻譯，必須精確描述表情、肢體動作與氛圍。
+4. **文字簡潔**：貼圖上的文字（Text）必須短促有力，適合手機畫面閱讀。
+
+# Output Format
+請依序條列，格式如下：
+1. 貼圖文字(中文畫面指令與表情描述)(English visual prompt describing the pose and expression matching the Chinese instruction)
+2. 貼圖文字(中文畫面指令與表情描述)(English visual prompt describing the pose and expression matching the Chinese instruction)
+...（依此類推直到達到指定數量）
+
+# Execution
+請根據 Input Data 中的參數，開始執行任務，並以文字框呈現。`;
+
+    return callWithRetry(async () => {
+        const response = await ai.models.generateContent({
+            model: TEXT_MODEL,
+            contents: { parts: [{ text: prompt }] },
+            config: { temperature: 0.7 }
+        });
+        validateResponse(response);
+        return response.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+    });
+};
+
+/**
+ * Locally parses the rigorous plan format: "1. Text(CN)(EN)"
+ * Returns an array of sticker ideas.
+ */
+export const parseStructuredStickerPlan = (rawText: string): { text: string, emotionPromptCN: string, emotionPrompt: string }[] => {
+    const lines = rawText.split('\n').filter(line => line.trim() !== '');
+    const results: { text: string, emotionPromptCN: string, emotionPrompt: string }[] = [];
+
+    // Regex to match: "1. Text(CN)(EN)"
+    // Allow loose spacing around parens.
+    const regex = /^\d+[\.,]\s*(.+?)\s*\((.+?)\)\s*\((.+?)\)$/;
+
+    for (const line of lines) {
+        const match = line.trim().match(regex);
+        if (match) {
+            results.push({
+                text: match[1].trim(),
+                emotionPromptCN: match[2].trim(),
+                emotionPrompt: match[3].trim()
+            });
+        }
+    }
+    return results;
 };
