@@ -45,8 +45,8 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
                                 key={step.id}
                                 onClick={() => setActiveStep(step.id)}
                                 className={`w-full text-left p-4 rounded-xl transition-all border ${activeStep === step.id
-                                        ? 'bg-indigo-600/20 border-indigo-500/50 text-white shadow-lg'
-                                        : 'bg-transparent border-transparent text-white/50 hover:bg-white/5'
+                                    ? 'bg-indigo-600/20 border-indigo-500/50 text-white shadow-lg'
+                                    : 'bg-transparent border-transparent text-white/50 hover:bg-white/5'
                                     }`}
                             >
                                 <div className="flex items-center gap-3">
@@ -90,43 +90,53 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
                                 <div className="mt-8 h-full flex items-center justify-center">
                                     {activeStep === 1 && (
                                         <div className="text-center space-y-4">
-                                            <div className="bg-blue-600 px-6 py-2 rounded shadow-lg text-white font-bold inline-block mx-auto transform hover:scale-105 transition-transform cursor-default">
-                                                Select a project ▼
+                                            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="bg-blue-600 hover:bg-blue-500 px-6 py-3 rounded-lg shadow-lg text-white font-bold inline-flex items-center gap-2 transform hover:scale-105 transition-transform">
+                                                <span>⚡ {t('aiStudioLink')}</span>
+                                                <span className="text-xs opactiy-50">↗</span>
+                                            </a>
+                                            <div className="text-xs text-center text-gray-500 max-w-xs mx-auto">
+                                                Click to create a key. <br />Remember the project name!
                                             </div>
-                                            <div className="text-xs text-gray-500">Click top-left menu &gt; New Project</div>
                                         </div>
                                     )}
 
                                     {activeStep === 2 && (
-                                        <div className="w-full max-w-sm bg-white/5 p-4 rounded border border-white/10">
-                                            <div className="flex bg-black/50 p-2 rounded mb-3 border border-white/10">
-                                                <span className="text-gray-500 mr-2">🔍</span>
-                                                <span className="text-white">Generative Language API</span>
+                                        <div className="w-full max-w-sm bg-white/5 p-4 rounded border border-white/10 text-center">
+                                            <div className="text-gray-400 text-sm mb-2">Google Cloud Console</div>
+                                            <div className="flex bg-black/50 p-2 rounded mb-3 border border-white/10 justify-between items-center px-4">
+                                                <span className="text-white font-mono text-xs">Generative Language Client...</span>
+                                                <span className="text-gray-500">▼</span>
                                             </div>
-                                            <div className="bg-blue-600 w-24 h-8 rounded animate-pulse"></div>
+                                            <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300 underline text-sm block mt-2">
+                                                {t('cloudConsoleLink')} ↗
+                                            </a>
                                         </div>
                                     )}
 
                                     {activeStep === 3 && (
                                         <div className="space-y-2 w-full max-w-xs p-4 bg-white/5 rounded border border-white/10">
-                                            <div className="text-xs text-gray-400 mb-2">APIs & Services &gt; Credentials</div>
-                                            <div className="w-full p-2 bg-blue-600/20 border border-blue-500/50 rounded text-blue-300 text-sm font-bold flex justify-between items-center">
-                                                <span>+ CREATE CREDENTIALS</span>
-                                                <span>▼</span>
+                                            <div className="w-full p-2 bg-transparent text-gray-400 text-sm border-b border-white/10 mb-2">
+                                                ≡  Navigation Menu
                                             </div>
-                                            <div className="ml-4 p-2 bg-white/10 rounded text-white text-xs border border-white/10">
-                                                🔑 API Key
+                                            <div className="ml-2 flex items-center gap-2 text-white/50">
+                                                <span>🏠</span> Dashboard
+                                            </div>
+                                            <div className="ml-2 flex items-center gap-2 text-amber-300 bg-amber-500/10 p-1 rounded font-bold border border-amber-500/20">
+                                                <span>💳</span> Billing
+                                            </div>
+                                            <div className="ml-8 text-xs text-gray-500">
+                                                ↳ Link Billing Account
                                             </div>
                                         </div>
                                     )}
 
                                     {activeStep === 4 && (
                                         <div className="text-center">
-                                            <div className="text-4xl mb-4">💳</div>
-                                            <div className="text-amber-400 font-bold mb-2">Link Billing Account</div>
+                                            <div className="text-5xl mb-4">🎉</div>
+                                            <div className="text-white font-bold mb-2">Ready to Create!</div>
                                             <p className="text-xs text-gray-500 max-w-xs mx-auto">
-                                                Required for Imagen 3.0 model. <br />
-                                                Free usage quotas still apply!
+                                                Your key is now upgraded.<br />
+                                                Close this window and verify.
                                             </p>
                                         </div>
                                     )}
