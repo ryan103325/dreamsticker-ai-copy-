@@ -204,7 +204,7 @@ const TextToggle = ({ enabled, onChange }: { enabled: boolean, onChange: (val: b
 );
 
 // External Prompt Generator Component
-const ExternalPromptGenerator = ({ onApply, isProcessing }: { onApply: (text: string) => void, isProcessing: boolean }) => {
+const ExternalPromptGenerator = ({ onApply, isProcessing, characterType }: { onApply: (text: string) => void, isProcessing: boolean, characterType: string }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [qty, setQty] = useState(8);
     const [category, setCategory] = useState("綜合"); // Default to Mixed
@@ -221,7 +221,8 @@ const ExternalPromptGenerator = ({ onApply, isProcessing }: { onApply: (text: st
                 finalCategory = "綜合:職場生存(15%)、投資韭菜(15%)、親密關係(15%)、吃貨日常(15%)、迷因嘴砲(20%)、厭世躺平(20%)";
             }
 
-            const plan = await generateStickerPlan(qty, finalCategory);
+            // Pass characterType to service
+            const plan = await generateStickerPlan(qty, finalCategory, characterType);
             if (plan) {
                 onApply(plan);
                 alert("文案已生成並填入！請點擊上方「分析並自動填入」來套用設定。");
@@ -254,12 +255,14 @@ const ExternalPromptGenerator = ({ onApply, isProcessing }: { onApply: (text: st
 請使用者填入以下參數：
 1. **生成數量**：${qty}
 2. **文案種類**：${displayCategory}
+3. **主角設定**：${characterType || "未指定 (請自由發揮，但需保持一致)"}
 
 # Constraints & Rules
 1. **格式嚴格限制**：必須嚴格遵守下方 Output Format 的結構，不得更改標點符號或換行方式。
 2. **禁止 Emoji**：輸出內容中嚴禁出現任何表情符號（Emoji）。
 3. **視覺一致性**：英文指令（Prompt）必須是針對 AI 繪圖工具（如 Midjourney）可理解的視覺描述，而非僅僅是文意翻譯，必須精確描述表情、肢體動作與氛圍。
-4. **文字簡潔**：貼圖上的文字（Text）必須短促有力，適合手機畫面閱讀。
+4. **角色一致性**：既然已經指定了「主角設定」，所有的英文 Prompt 必須嚴格遵循此角色設定 (例如若是 Animal，就不能寫 person)。
+5. **文字簡潔**：貼圖上的文字（Text）必須短促有力，適合手機畫面閱讀。
 
 # Output Format
 請依序條列，格式如下：
@@ -1541,7 +1544,7 @@ export const App = () => {
 
                                         <textarea value={smartInputText} onChange={(e) => setSmartInputText(e.target.value)} className="w-full h-40 p-4 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-400 outline-none resize-none bg-white mb-4" placeholder="在此貼上您的想法..." />
                                         <button onClick={handleSmartInput} disabled={!smartInputText.trim() || isProcessing} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"><MagicWandIcon /> 分析並自動填入</button>
-                                        <ExternalPromptGenerator onApply={setSmartInputText} isProcessing={isProcessing} />
+                                        <ExternalPromptGenerator onApply={setSmartInputText} isProcessing={isProcessing} characterType={charComposition} />
                                     </div>
                                 </div>
 
