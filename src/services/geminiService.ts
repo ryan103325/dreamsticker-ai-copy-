@@ -17,9 +17,8 @@ let dynamicApiKey = '';
 
 export const setApiKey = (key: string) => {
     dynamicApiKey = key;
-    if (typeof window !== 'undefined') {
-        saveApiKey(key);
-    }
+    // Security update: Do NOT persist key to localStorage based on user request.
+    // Memory-only storage for the current session.
 };
 
 export const getApiKey = () => {

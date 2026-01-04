@@ -266,12 +266,8 @@ export const App = () => {
         setHasKey(true);
     };
 
-    useEffect(() => {
-        const stored = loadApiKey();
-        if (stored) {
-            setKeyAndStart(stored);
-        }
-    }, []);
+    // Security update: No auto-loading of keys.
+    // useEffect(() => { ... }, []);
 
     // 2. OpenCV Check
     useEffect(() => {
@@ -853,7 +849,7 @@ export const App = () => {
                     <button
                         onClick={() => {
                             if (confirm(t.confirmChangeKey)) {
-                                clearApiKey();
+                                // clearApiKey(); // No longer needed as we don't store it
                                 window.location.reload();
                             }
                         }}

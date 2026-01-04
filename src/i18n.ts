@@ -10,7 +10,7 @@ export const translations = {
         startBtn: "開始創作",
         noKey: "沒有 API Key?",
         getKey: "前往 Google AI Studio 免費獲取",
-        localSave: "您的 Key 僅儲存於本地瀏覽器，不會上傳至伺服器。",
+        localSave: "為了您的資訊安全，Key 僅保留於本次連線 (Session)，重整網頁後需重新輸入。",
         invalidKey: "請輸入有效的 API Key",
 
         // Navbar
@@ -51,7 +51,7 @@ export const translations = {
         startBtn: "Start Creating",
         noKey: "No API Key?",
         getKey: "Get one for free at Google AI Studio",
-        localSave: "Your Key is stored locally in your browser and never uploaded to servers.",
+        localSave: "For your security, the Key is used for this session only and will be cleared on refresh.",
         invalidKey: "Please enter a valid API Key",
 
         // Navbar
