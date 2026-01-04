@@ -1215,37 +1215,7 @@ export const App = () => {
                                                 </div>
                                             </div>
 
-                                            {/* Character Composition Selector */}
-                                            <div className="bg-white p-3 rounded-xl border border-dashed border-indigo-200">
-                                                <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">{t('charType')}</label>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {charCount === 1 ? (
-                                                        <>
-                                                            {['Animal (動物)', 'Person (人物)'].map(type => (
-                                                                <button
-                                                                    key={type}
-                                                                    onClick={() => setCharComposition(type)}
-                                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${charComposition === type ? 'bg-indigo-100 text-indigo-700 border-indigo-300' : 'bg-slate-50 text-slate-500 border-slate-100 hover:border-indigo-200'}`}
-                                                                >
-                                                                    {type}
-                                                                </button>
-                                                            ))}
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            {['Animals (動物)', 'Person (2 Male / 兩男)', 'Person (2 Female / 兩女)', 'Person (Male + Female / 男女)'].map(type => (
-                                                                <button
-                                                                    key={type}
-                                                                    onClick={() => setCharComposition(type)}
-                                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${charComposition === type ? 'bg-indigo-100 text-indigo-700 border-indigo-300' : 'bg-slate-50 text-slate-500 border-slate-100 hover:border-indigo-200'}`}
-                                                                >
-                                                                    {type}
-                                                                </button>
-                                                            ))}
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </div>
+
                                         </div>
                                     )}
 
