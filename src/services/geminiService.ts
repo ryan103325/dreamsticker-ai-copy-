@@ -7,7 +7,7 @@ import { stripMimeType, getMimeType, wait } from "./utils";
 const IP_DESIGN_MODEL = 'gemini-3-pro-image-preview';
 const STICKER_GEN_MODEL_PRO = 'gemini-3-pro-image-preview';
 const STICKER_GEN_MODEL_FLASH = 'gemini-2.5-flash-image';
-const TEXT_MODEL = 'gemini-1.5-flash';
+const TEXT_MODEL = 'gemini-2.5-flash';
 const VALIDATION_MODEL = 'gemini-2.5-flash-image'; // Used for QA check
 
 import { saveApiKey, loadApiKey } from "./storageUtils";

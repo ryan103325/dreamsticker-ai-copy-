@@ -207,15 +207,21 @@ const TextToggle = ({ enabled, onChange }: { enabled: boolean, onChange: (val: b
 const ExternalPromptGenerator = ({ onApply, isProcessing }: { onApply: (text: string) => void, isProcessing: boolean }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [qty, setQty] = useState(8);
-    const [category, setCategory] = useState("職場生存");
+    const [category, setCategory] = useState("綜合"); // Default to Mixed
     const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
 
-    const categories = ["職場生存", "投資韭菜", "親密關係", "吃貨日常", "迷因嘴砲", "厭世躺平"];
+    const categories = ["綜合", "職場生存", "投資韭菜", "親密關係", "吃貨日常", "迷因嘴砲", "厭世躺平"];
 
     const handleAIGenerate = async () => {
         setIsGeneratingPlan(true);
         try {
-            const plan = await generateStickerPlan(qty, category);
+            // Apply expanded definition for "Mixed" invisibly to the user
+            let finalCategory = category;
+            if (category === "綜合") {
+                finalCategory = "綜合:職場生存(15%)、投資韭菜(15%)、親密關係(15%)、吃貨日常(15%)、迷因嘴砲(20%)、厭世躺平(20%)";
+            }
+
+            const plan = await generateStickerPlan(qty, finalCategory);
             if (plan) {
                 onApply(plan);
                 alert("文案已生成並填入！請點擊上方「分析並自動填入」來套用設定。");
@@ -229,6 +235,16 @@ const ExternalPromptGenerator = ({ onApply, isProcessing }: { onApply: (text: st
     };
 
     const generatePrompt = () => {
+        let displayCategory = category;
+        // Don't show the expanded logic in the preview if user just selected "Mixed", 
+        // OR do show it if we want them to know. User said "just don't show in dropdown".
+        // Let's show the expanded version in the prompt PREVIEW so they know what they are getting?
+        // User said: "In the dropdown, don't let the user see it".
+        // prompt preview shows what is SENT.
+        if (category === "綜合") {
+            displayCategory = "綜合:職場生存(15%)、投資韭菜(15%)、親密關係(15%)、吃貨日常(15%)、迷因嘴砲(20%)、厭世躺平(20%)";
+        }
+
         return `# Role: 專業 LINE 貼圖創意總監與 Prompt 工程師
 
 # Context
@@ -237,7 +253,7 @@ const ExternalPromptGenerator = ({ onApply, isProcessing }: { onApply: (text: st
 # Input Data
 請使用者填入以下參數：
 1. **生成數量**：${qty}
-2. **文案種類**：${category}
+2. **文案種類**：${displayCategory}
 
 # Constraints & Rules
 1. **格式嚴格限制**：必須嚴格遵守下方 Output Format 的結構，不得更改標點符號或換行方式。
@@ -261,7 +277,7 @@ const ExternalPromptGenerator = ({ onApply, isProcessing }: { onApply: (text: st
                 onClick={() => setIsOpen(!isOpen)}
                 className="w-full flex items-center justify-between text-xs font-bold text-indigo-500 hover:text-indigo-700 transition-colors"
             >
-                <span>✨ 進階：AI 文案生成助手 (AI Copywriter)</span>
+                <span>✨ AI 文案生成助手 (AI Copywriter)</span>
                 <span>{isOpen ? '▲' : '▼'}</span>
             </button>
 
@@ -275,24 +291,15 @@ const ExternalPromptGenerator = ({ onApply, isProcessing }: { onApply: (text: st
                         <label className="font-bold text-slate-500 ml-2">種類:</label>
                         <select value={category} onChange={(e) => setCategory(e.target.value)} className="p-1 rounded border-slate-200 text-slate-700 font-bold flex-1">
                             {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                            <option value="綜合">綜合 (Mixed)</option>
                         </select>
                     </div>
 
                     <div className="flex gap-2">
-                        {/* Mixed Button */}
-                        <button
-                            onClick={() => setCategory("綜合")}
-                            className="flex-1 py-2 text-[10px] bg-white border border-indigo-200 text-indigo-600 font-bold rounded hover:bg-indigo-50"
-                        >
-                            🎲 Set Mixed
-                        </button>
-
-                        {/* AI Generate Button */}
+                        {/* AI Generate Button (Full Width now since mixed button is gone) */}
                         <button
                             onClick={handleAIGenerate}
                             disabled={isProcessing || isGeneratingPlan}
-                            className="flex-[2] py-2 text-xs bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold rounded shadow-md hover:shadow-lg disabled:opacity-50"
+                            className="w-full py-2 text-xs bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold rounded shadow-md hover:shadow-lg disabled:opacity-50"
                         >
                             {isGeneratingPlan ? '生成中...' : '✨ 由 AI 生成 (Use Gemini 2.5 Flash)'}
                         </button>
@@ -331,6 +338,7 @@ export const App = () => {
 
     // Group Character States
     const [charCount, setCharCount] = useState<number>(1);
+    const [charComposition, setCharComposition] = useState("Animal (動物)"); // New State
     const [groupChars, setGroupChars] = useState<CharacterInput[]>([
         { id: '1', description: '' },
         { id: '2', description: '' }
@@ -661,12 +669,16 @@ export const App = () => {
         try {
             let result;
 
+            // Inject Composition Rule into Style Prompt (Invisible to user, but guides AI)
+            const compositionRule = `[Character Composition Requirement: ${charComposition}]`;
+            const finalStylePrompt = `${compositionRule} ${stylePrompt}`;
+
             if (inputMode === 'PHOTO' && charCount > 1) {
-                result = await generateGroupCharacterSheet(groupChars, stylePrompt);
+                result = await generateGroupCharacterSheet(groupChars, finalStylePrompt);
             } else {
                 result = await generateIPCharacter(
                     inputMode === 'TEXT_PROMPT' ? promptText : sourceImage!,
-                    stylePrompt,
+                    finalStylePrompt,
                     inputMode,
                     variationSeed
                 );
@@ -1121,24 +1133,58 @@ export const App = () => {
 
                                     {/* PHOTO MODE: Character Count Selector */}
                                     {inputMode === 'PHOTO' && (
-                                        <div className="mb-8 bg-slate-50 p-4 rounded-2xl flex items-center justify-between border border-slate-100">
-                                            <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                                                <span>👥</span> 設定角色數量
-                                                <span className="text-xs font-normal text-slate-400 bg-white px-2 py-0.5 rounded border border-slate-200">單人 / 多人</span>
-                                            </label>
-                                            <div className="flex gap-2">
-                                                {[1, 2, 3, 4].map(num => (
+                                        <div className="mb-8 bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                                    <span>👥</span> 設定角色數量
+                                                    <span className="text-xs font-normal text-slate-400 bg-white px-2 py-0.5 rounded border border-slate-200">單人 / 雙人 (目前上限 2 人)</span>
+                                                </label>
+                                                <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
                                                     <button
-                                                        key={num}
-                                                        onClick={() => handleCharCountChange(num)}
-                                                        className={`w-10 h-10 rounded-xl font-black transition-all border-2 
-                                                ${charCount === num
-                                                                ? 'bg-indigo-500 border-indigo-500 text-white shadow-lg scale-110'
-                                                                : 'bg-white border-slate-200 text-slate-400 hover:border-indigo-200 hover:text-indigo-500'}`}
+                                                        onClick={() => handleCharCountChange(1)}
+                                                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${charCount === 1 ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-indigo-500'}`}
                                                     >
-                                                        {num}
+                                                        單人 (Single)
                                                     </button>
-                                                ))}
+                                                    <button
+                                                        onClick={() => handleCharCountChange(2)}
+                                                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${charCount === 2 ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-indigo-500'}`}
+                                                    >
+                                                        雙人 (Dual)
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Character Composition Selector */}
+                                            <div className="bg-white p-3 rounded-xl border border-dashed border-indigo-200">
+                                                <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">角色類型分類 (Character Type)</label>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {charCount === 1 ? (
+                                                        <>
+                                                            {['Animal (動物)', 'Person (人物)'].map(type => (
+                                                                <button
+                                                                    key={type}
+                                                                    onClick={() => setCharComposition(type)}
+                                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${charComposition === type ? 'bg-indigo-100 text-indigo-700 border-indigo-300' : 'bg-slate-50 text-slate-500 border-slate-100 hover:border-indigo-200'}`}
+                                                                >
+                                                                    {type}
+                                                                </button>
+                                                            ))}
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            {['Animals (動物)', 'Person (2 Male / 兩男)', 'Person (2 Female / 兩女)', 'Person (Male + Female / 男女)'].map(type => (
+                                                                <button
+                                                                    key={type}
+                                                                    onClick={() => setCharComposition(type)}
+                                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${charComposition === type ? 'bg-indigo-100 text-indigo-700 border-indigo-300' : 'bg-slate-50 text-slate-500 border-slate-100 hover:border-indigo-200'}`}
+                                                                >
+                                                                    {type}
+                                                                </button>
+                                                            ))}
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     )}
