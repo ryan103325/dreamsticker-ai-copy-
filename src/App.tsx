@@ -204,6 +204,136 @@ const TextToggle = ({ enabled, onChange }: { enabled: boolean, onChange: (val: b
     </div>
 );
 
+// Inline Prompt Generator Component (Restored & Upgraded)
+const InlinePromptGenerator = ({ onApply, isProcessing, initialCharacter, stickerType }: { onApply: (text: string) => void, isProcessing: boolean, initialCharacter: string, stickerType: StickerType }) => {
+    const { t } = useLanguage();
+    const [isOpen, setIsOpen] = useState(false);
+    const [qty, setQty] = useState(8);
+    const [theme, setTheme] = useState("mixed");
+    const [customCharacter, setCustomCharacter] = useState(initialCharacter || "");
+    const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+
+    useEffect(() => {
+        setCustomCharacter(initialCharacter);
+    }, [initialCharacter]);
+
+
+    const themes = [
+        { id: 'mixed', label: t('themeMixed') },
+        { id: 'work', label: t('themeWork') },
+        { id: 'invest', label: t('themeInvest') },
+        { id: 'love', label: t('themeLove') },
+        { id: 'foodie', label: t('themeFoodie') },
+        { id: 'meme', label: t('themeMeme') },
+        { id: 'lazy', label: t('themeLazy') },
+    ];
+
+    const handleAIGenerate = async () => {
+        setIsGeneratingPlan(true);
+        try {
+            const themeLabel = themes.find(th => th.id === theme)?.label || theme;
+            const result = await generateStickerText({
+                quantity: qty,
+                theme: themeLabel,
+                character: customCharacter,
+                type: stickerType === 'EMOJI' ? 'EMOJI' : 'STICKER'
+            });
+            if (result) {
+                onApply(result);
+            }
+        } catch (e) {
+            alert(t('ideaGenError'));
+            console.error(e);
+        } finally {
+            setIsGeneratingPlan(false);
+        }
+    };
+
+    const generatePreviewPrompt = () => {
+        const term = stickerType === 'EMOJI' ? '表情貼' : '貼圖';
+        const themeLabel = themes.find(th => th.id === theme)?.label || theme;
+
+        return `# Role: 專業 LINE ${term}創意總監與 Prompt 工程師
+
+# Context
+使用者希望產出一組 LINE ${term}的創意企劃，包含「${term}文字」、「中文畫面指令」與「英文畫面指令」。你需要根據指定的「數量」與「主題風格」進行發想。
+
+# Input Data
+1. **生成數量**：${qty}
+2. **文案種類**：${themeLabel}
+3. **主角設定**：${customCharacter || "未指定"}
+
+# Output Format
+請依序條列，格式如下：
+${term}文字, 中文畫面指令, 英文畫面指令
+... (x${qty})
+`;
+    };
+
+    return (
+        <div className="border-t border-indigo-100 pt-4 mt-4">
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full flex items-center justify-between text-xs font-bold text-indigo-500 hover:text-indigo-700 transition-colors"
+            >
+                <span>✨ {t('promptGenTitle')}</span>
+                <span>{isOpen ? '▲' : '▼'}</span>
+            </button>
+
+            {isOpen && (
+                <div className="mt-3 space-y-3 bg-indigo-50/50 p-3 rounded-xl border border-indigo-100 animate-fade-in">
+
+                    {/* Controls */}
+                    <div className="space-y-2">
+                        <div className="flex gap-2">
+                            <div className="flex-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">{t('genTheme')}</label>
+                                <select value={theme} onChange={(e) => setTheme(e.target.value)} className="w-full p-1.5 rounded-lg border-slate-200 text-sm font-bold text-slate-700">
+                                    {themes.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                                </select>
+                            </div>
+                            <div className="w-20">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">{t('genQuantity')}</label>
+                                <select value={qty} onChange={(e) => setQty(Number(e.target.value))} className="w-full p-1.5 rounded-lg border-slate-200 text-sm font-bold text-slate-700">
+                                    {[8, 16, 24, 32, 40].map(n => <option key={n} value={n}>{n}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">{t('genCharacter')}</label>
+                            <input type="text" value={customCharacter} onChange={(e) => setCustomCharacter(e.target.value)} className="w-full p-1.5 rounded-lg border-slate-200 text-sm font-bold text-slate-700" placeholder={t('genCharacterPlaceholder')} />
+                        </div>
+                    </div>
+
+                    {/* Generate Button */}
+                    <button
+                        onClick={handleAIGenerate}
+                        disabled={isProcessing || isGeneratingPlan}
+                        className="w-full py-2 text-xs bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold rounded-lg shadow-md hover:shadow-lg disabled:opacity-50 flex items-center justify-center gap-1"
+                    >
+                        {isGeneratingPlan ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <MagicWandIcon />}
+                        {isGeneratingPlan ? t('generatingPlan') : t('startGenerate')}
+                    </button>
+
+                    {/* Preview Prompt */}
+                    <div className="relative pt-2 border-t border-indigo-100/50">
+                        <label className="text-[10px] font-bold text-slate-400 mb-1 block">Prompt Preview (Copyable)</label>
+                        <textarea
+                            readOnly
+                            value={generatePreviewPrompt()}
+                            className="w-full h-24 p-2 text-[10px] bg-white border border-slate-200 rounded-lg resize-none text-slate-500 font-mono focus:outline-none"
+                        />
+                        <div className="absolute bottom-2 right-2">
+                            <CopyBtn text={generatePreviewPrompt()} label={t('copyPrompt')} />
+                        </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 text-center">{t('autoFillTip')}</p>
+                </div>
+            )}
+        </div>
+    );
+};
+
 
 
 import { useTheme } from './ThemeContext';
@@ -1429,15 +1559,14 @@ export const App = () => {
 
                                         <textarea value={smartInputText} onChange={(e) => setSmartInputText(e.target.value)} className="w-full h-40 p-4 rounded-xl border border-slate-200 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-400 outline-none resize-none bg-white mb-4" placeholder={t('pasteIdeasPlaceholder')} />
                                         <button onClick={handleSmartInput} disabled={!smartInputText.trim() || isProcessing} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"><MagicWandIcon /> {t('analyzeAndFill')}</button>
-                                        <div className="mt-4 border-t border-indigo-100 pt-4">
-                                            <button
-                                                onClick={() => { setPromptModalTarget('SMART_INPUT'); setIsPromptModalOpen(true); }}
-                                                className="w-full flex items-center justify-between text-xs font-bold text-indigo-500 hover:text-indigo-700 transition-colors p-2 rounded-lg hover:bg-indigo-50"
-                                            >
-                                                <span className="flex items-center gap-2">✨ {t('promptGenTitle')} <span className="text-[10px] bg-indigo-100 px-1.5 py-0.5 rounded text-indigo-600">New</span></span>
-                                                <span>→</span>
-                                            </button>
-                                        </div>
+
+                                        {/* Inline Prompt Generator (Restored & Upgraded) */}
+                                        <InlinePromptGenerator
+                                            onApply={(text) => setSmartInputText(text)}
+                                            isProcessing={isProcessing}
+                                            initialCharacter={charComposition}
+                                            stickerType={stickerType}
+                                        />
                                     </div>
                                 </div>
 
